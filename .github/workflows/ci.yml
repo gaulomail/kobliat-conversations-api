@@ -155,8 +155,6 @@ jobs:
     strategy:
       matrix:
         service:
-          - api-gateway
-          - customer-service
           - conversation-service
           - messaging-service
           - media-service
