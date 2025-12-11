@@ -18,14 +18,14 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
+          php-version: '8.4'
           extensions: mbstring, xml, ctype, json, bcmath, pdo, sqlite, pdo_sqlite
           coverage: none
 
       - name: Install PHP dependencies
         run: |
           cd packages/kobliat-shared
-          composer install --prefer-dist --no-progress --no-suggest
+          composer install --prefer-dist --no-progress
 
       - name: PHP Code Style (Laravel Pint)
         run: |
@@ -86,7 +86,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
+          php-version: '8.4'
           extensions: mbstring, xml, ctype, json, bcmath, pdo, mysql, pdo_mysql, sqlite, pdo_sqlite
           coverage: xdebug
 
@@ -109,7 +109,7 @@ jobs:
               fi
               
               # Install dependencies
-              composer install --prefer-dist --no-progress --no-suggest
+              composer install --prefer-dist --no-progress
               
               # Generate app key
               if [ -f "artisan" ]; then
@@ -170,7 +170,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
+          php-version: '8.4'
           extensions: mbstring, xml, ctype, json, bcmath, pdo, sqlite, pdo_sqlite
           coverage: xdebug
 
