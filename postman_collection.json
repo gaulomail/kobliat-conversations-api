@@ -1,0 +1,186 @@
+{
+    "info": {
+        "_postman_id": "b0f7e9a8-3c2d-4e5f-9a1b-8c7d6e5f4a3b",
+        "name": "Kobliat Conversations Platform - Complete",
+        "description": "Complete API Gateway collection with all working endpoints",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Customer Service",
+            "item": [
+                {
+                    "name": "Create Customer",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {"key": "Content-Type", "value": "application/json"},
+                            {"key": "X-API-Key", "value": "{{api_key}}"}
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"external_id\": \"{{customer_phone}}\",\n    \"external_type\": \"whatsapp\",\n    \"name\": \"John Doe\"\n}"
+                        },
+                        "url": "{{api_gateway_url}}/api/v1/customers"
+                    }
+                },
+                {
+                    "name": "Get Customer by ID",
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "X-API-Key", "value": "{{api_key}}"}],
+                        "url": "{{api_gateway_url}}/api/v1/customers/{{customer_id}}"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Conversation Service",
+            "item": [
+                {
+                    "name": "List Conversations",
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "X-API-Key", "value": "{{api_key}}"}],
+                        "url": "{{api_gateway_url}}/api/v1/conversations"
+                    }
+                },
+                {
+                    "name": "Create Conversation",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {"key": "Content-Type", "value": "application/json"},
+                            {"key": "X-API-Key", "value": "{{api_key}}"}
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"type\": \"direct\",\n    \"participants\": [\"{{customer_id}}\", \"{{secondary_customer_id}}\"]\n}"
+                        },
+                        "url": "{{api_gateway_url}}/api/v1/conversations"
+                    }
+                },
+                {
+                    "name": "Get Conversation",
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "X-API-Key", "value": "{{api_key}}"}],
+                        "url": "{{api_gateway_url}}/api/v1/conversations/{{conversation_id}}"
+                    }
+                },
+                {
+                    "name": "Get Conversation Details (Aggregated)",
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "X-API-Key", "value": "{{api_key}}"}],
+                        "url": "{{api_gateway_url}}/api/v1/conversations/{{conversation_id}}/details"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Messaging Service",
+            "item": [
+                {
+                    "name": "Get Conversation Messages",
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "X-API-Key", "value": "{{api_key}}"}],
+                        "url": "{{api_gateway_url}}/api/v1/conversations/{{conversation_id}}/messages"
+                    }
+                },
+                {
+                    "name": "Send Message",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {"key": "Content-Type", "value": "application/json"},
+                            {"key": "X-API-Key", "value": "{{api_key}}"}
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"conversation_id\": \"{{conversation_id}}\",\n    \"direction\": \"outbound\",\n    \"body\": \"Hello from API Gateway!\",\n    \"sender_customer_id\": \"{{customer_id}}\"\n}"
+                        },
+                        "url": "{{api_gateway_url}}/api/v1/messages"
+                    }
+                },
+                {
+                    "name": "Update Message",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {"key": "Content-Type", "value": "application/json"},
+                            {"key": "X-API-Key", "value": "{{api_key}}"}
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"body\": \"Updated message text\"\n}"
+                        },
+                        "url": "{{api_gateway_url}}/api/v1/messages/{{message_id}}"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Media Service",
+            "item": [
+                {
+                    "name": "Upload Media",
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key": "X-API-Key", "value": "{{api_key}}"}],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {"key": "file", "type": "file", "src": []},
+                                {"key": "owner_service", "value": "messaging-service", "type": "text"}
+                            ]
+                        },
+                        "url": "{{api_gateway_url}}/api/v1/media/upload"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "API Logs",
+            "item": [
+                {
+                    "name": "Get API Logs",
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "X-API-Key", "value": "{{api_key}}"}],
+                        "url": {
+                            "raw": "{{api_gateway_url}}/api/v1/logs?page=1",
+                            "host": ["{{api_gateway_url}}"],
+                            "path": ["api", "v1", "logs"],
+                            "query": [
+                                {"key": "page", "value": "1"},
+                                {"key": "method", "value": "POST", "disabled": true},
+                                {"key": "status", "value": "200", "disabled": true}
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Log Details",
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "X-API-Key", "value": "{{api_key}}"}],
+                        "url": "{{api_gateway_url}}/api/v1/logs/{{log_id}}"
+                    }
+                }
+            ]
+        }
+    ],
+    "variable": [
+        {"key": "api_gateway_url", "value": "http://localhost:8000"},
+        {"key": "api_key", "value": "kobliat-secret-key"},
+        {"key": "customer_phone", "value": "27831234567"},
+        {"key": "customer_id", "value": ""},
+        {"key": "secondary_customer_id", "value": ""},
+        {"key": "conversation_id", "value": ""},
+        {"key": "message_id", "value": ""},
+        {"key": "media_id", "value": ""},
+        {"key": "log_id", "value": ""}
+    ]
+}

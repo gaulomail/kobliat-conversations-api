@@ -1,0 +1,11 @@
+{
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../../packages/kobliat-shared"
+        }
+    ],
+    "require": {
+        "kobliat/shared": "*"
+    }
+}

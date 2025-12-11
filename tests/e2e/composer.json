@@ -1,0 +1,10 @@
+{
+    "name": "kobliat/e2e-tests",
+    "description": "End-to-end integration tests",
+    "type": "project",
+    "require": {
+        "phpunit/phpunit": "^11.0",
+        "guzzlehttp/guzzle": "^7.8"
+    },
+    "license": "MIT"
+}

@@ -1,0 +1,372 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Send, Bot, User, Loader, Play, RefreshCw, Paperclip, X, Image as ImageIcon, File, Video } from 'lucide-react';
+import DashboardLayout from '../layouts/DashboardLayout';
+import Button from '../components/Button';
+import { uploadMedia, type MediaFile } from '../services/api';
+
+interface Message {
+    id: string;
+    body: string;
+    sender_customer_id: string;
+    sender_name: string;
+    direction: 'inbound' | 'outbound';
+    created_at: string;
+    media_attachments?: MediaFile[];
+}
+
+interface Customer {
+    id: string;
+    name: string;
+    external_id: string;
+}
+
+interface Conversation {
+    id: string;
+    type: string;
+    participants: Customer[];
+}
+
+const Chat: React.FC = () => {
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [inputMessage, setInputMessage] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [conversation, setConversation] = useState<Conversation | null>(null);
+    const [currentCustomer, setCurrentCustomer] = useState<Customer | null>(null);
+    const [botCustomer, setBotCustomer] = useState<Customer | null>(null);
+    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+    const [uploadingFiles, setUploadingFiles] = useState(false);
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const API_KEY = 'kobliat-secret-key';
+    const BASE_URL = 'http://localhost:8000/api/v1';
+
+    const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    useEffect(() => {
+        scrollToBottom();
+    }, [messages]);
+
+    const initializeChat = async () => {
+        setLoading(true);
+        try {
+            // Create user customer
+            const userResponse = await fetch(`${BASE_URL}/customers`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-Key': API_KEY
+                },
+                body: JSON.stringify({
+                    external_id: `user_${Date.now()}`,
+                    external_type: 'web',
+                    name: 'You'
+                })
+            });
+            const user = await userResponse.json();
+            setCurrentCustomer(user);
+
+            // Create bot customer
+            const botResponse = await fetch(`${BASE_URL}/customers`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-Key': API_KEY
+                },
+                body: JSON.stringify({
+                    external_id: `bot_${Date.now()}`,
+                    external_type: 'assistant',
+                    name: 'AI Assistant'
+                })
+            });
+            const bot = await botResponse.json();
+            setBotCustomer(bot);
+
+            // Create conversation
+            const convResponse = await fetch(`${BASE_URL}/conversations`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-Key': API_KEY
+                },
+                body: JSON.stringify({
+                    type: 'direct',
+                    participants: [user.id, bot.id]
+                })
+            });
+            const conv = await convResponse.json();
+            setConversation({ ...conv, participants: [user, bot] });
+
+            // Send welcome message
+            await sendBotMessage(conv.id, bot.id, "Hello! I'm your AI assistant. How can I help you today?");
+
+        } catch (error) {
+            console.error('Failed to initialize chat:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const sendBotMessage = async (conversationId: string, botId: string, messageText: string) => {
+        const response = await fetch(`${BASE_URL}/messages`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-API-Key': API_KEY
+            },
+            body: JSON.stringify({
+                conversation_id: conversationId,
+                direction: 'inbound',
+                try {
+                    const response = await fetch(`${BASE_URL}/messages`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-API-Key': API_KEY
+                        },
+                        body: JSON.stringify({
+                            conversation_id: conversationId,
+                            direction: 'inbound',
+                            body: messageText,
+                            sender_customer_id: botId
+                        })
+                    });
+                    const message = await response.json();
+                    setMessages(prev => [...prev, {
+                        ...message,
+                        sender_name: 'AI Assistant'
+                    }]);
+setLoading(false);
+            }, 1000);
+
+        } catch (error) {
+    console.error('Failed to send message:', error);
+    setLoading(false);
+}
+    };
+
+const generateAIResponse = async (userMessage: string): Promise<string> => {
+    // Simple fallback responses based on keywords
+    const lowerMessage = userMessage.toLowerCase();
+
+    if (lowerMessage.includes('hello') || lowerMessage.includes('hi')) {
+        return "Hello! How can I assist you today?";
+    }
+    if (lowerMessage.includes('help')) {
+        return "I'm here to help! You can ask me about our services, products, or any questions you have.";
+    }
+    if (lowerMessage.includes('price') || lowerMessage.includes('cost')) {
+        return "Our pricing varies depending on your needs. Would you like me to provide more specific information?";
+    }
+    if (lowerMessage.includes('thank')) {
+        return "You're welcome! Is there anything else I can help you with?";
+    }
+
+    return "That's interesting! Tell me more about what you're looking for.";
+};
+
+const runSimulator = async (scenario: 'curious_shopper' | 'angry_customer') => {
+    setLoading(true);
+    try {
+        const response = await fetch('http://localhost:8006/api/simulate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ scenario })
+        });
+        const result = await response.json();
+
+        if (result.status === 'success' && conversation && botCustomer) {
+            // Simulate the generated message as if bot sent it
+            await sendBotMessage(conversation.id, botCustomer.id, result.generated_message);
+        }
+    } catch (error) {
+        console.error('Simulator error:', error);
+    } finally {
+        setLoading(false);
+    }
+};
+
+return (
+    <DashboardLayout>
+        <div className="space-y-6">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white">AI Chat</h1>
+                    <p className="mt-2 text-gray-600 dark:text-gray-400">
+                        Interactive chat powered by microservices
+                    </p>
+                </div>
+                <div className="flex gap-3">
+                    {!conversation ? (
+                        <Button
+                            startIcon={<Play />}
+                            onClick={initializeChat}
+                            disabled={loading}
+                        >
+                            Start Chat
+                        </Button>
+                    ) : (
+                        <Button
+                            variant="outlined"
+                            startIcon={<RefreshCw />}
+                            onClick={initializeChat}
+                            disabled={loading}
+                        >
+                            New Chat
+                        </Button>
+                    )}
+                </div>
+            </div>
+
+            {/* Simulator Buttons - Only show when chat is active */}
+            {conversation && (
+                <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
+                                🤖 Chat Simulator
+                            </h3>
+                            <p className="text-xs text-gray-600 dark:text-gray-400">
+                                Click a scenario to generate AI-powered customer messages
+                            </p>
+                        </div>
+                        <div className="flex gap-2">
+                            <Button
+                                variant="outlined"
+                                startIcon={<Bot />}
+                                onClick={() => runSimulator('curious_shopper')}
+                                disabled={loading}
+                                size="sm"
+                            >
+                                Curious Shopper
+                            </Button>
+                            <Button
+                                variant="outlined"
+                                startIcon={<Bot />}
+                                onClick={() => runSimulator('angry_customer')}
+                                disabled={loading}
+                                size="sm"
+                            >
+                                Angry Customer
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Chat Container */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 h-[600px] flex flex-col">
+                {/* Messages Area */}
+                <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                    {!conversation ? (
+                        <div className="flex items-center justify-center h-full">
+                            <div className="text-center">
+                                <Bot className="w-16 h-16 mx-auto text-gray-400 dark:text-gray-600 mb-4" />
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                                    Welcome to AI Chat
+                                </h3>
+                                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                                    Click "Start Chat" to begin a conversation
+                                </p>
+                            </div>
+                        </div>
+                    ) : (
+                        <>
+                            {messages.map((message) => {
+                                const isUser = message.sender_customer_id === currentCustomer?.id;
+                                return (
+                                    <div
+                                        key={message.id}
+                                        className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
+                                    >
+                                        <div className={`flex gap-3 max-w-[70%] ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isUser
+                                                ? 'bg-blue-600 text-white'
+                                                : 'bg-gray-600 dark:bg-gray-700 text-white'
+                                                }`}>
+                                                {isUser ? <User size={16} /> : <Bot size={16} />}
+                                            </div>
+                                            <div>
+                                                <div className={`rounded-lg px-4 py-2 ${isUser
+                                                    ? 'bg-blue-600 text-white'
+                                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
+                                                    }`}>
+                                                    <p className="text-sm">{message.body}</p>
+                                                </div>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 px-1">
+                                                    {new Date(message.created_at).toLocaleTimeString()}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                            {loading && (
+                                <div className="flex justify-start">
+                                    <div className="flex gap-3 max-w-[70%]">
+                                        <div className="w-8 h-8 rounded-full bg-gray-600 dark:bg-gray-700 flex items-center justify-center">
+                                            <Bot size={16} className="text-white" />
+                                        </div>
+                                        <div className="bg-gray-100 dark:bg-gray-700 rounded-lg px-4 py-2">
+                                            <Loader className="w-5 h-5 animate-spin text-gray-600 dark:text-gray-400" />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            <div ref={messagesEndRef} />
+                        </>
+                    )}
+                </div>
+
+                {/* Input Area */}
+                {conversation && (
+                    <div className="border-t border-gray-200 dark:border-gray-700 p-4">
+                        <div className="flex gap-3">
+                            <input
+                                type="text"
+                                value={inputMessage}
+                                onChange={(e) => setInputMessage(e.target.value)}
+                                onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                                placeholder="Type your message..."
+                                disabled={loading}
+                                className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 border-none rounded-lg text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <Button
+                                startIcon={<Send />}
+                                onClick={sendMessage}
+                                disabled={loading || !inputMessage.trim()}
+                            >
+                                Send
+                            </Button>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Info Panel */}
+            {conversation && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                        <Bot className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                        <div className="text-sm text-blue-800 dark:text-blue-200">
+                            <p className="font-medium mb-1">Active Conversation</p>
+                            <div className="text-xs space-y-1">
+                                <p>Conversation ID: <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded">{conversation.id}</code></p>
+                                <p>Participants: {currentCustomer?.name} & {botCustomer?.name}</p>
+                                <p>Messages: {messages.length}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    </DashboardLayout>
+);
+};
+
+export default Chat;
