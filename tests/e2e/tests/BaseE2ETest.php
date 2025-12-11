@@ -12,6 +12,10 @@ abstract class BaseE2ETest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        if (getenv('GITHUB_ACTIONS') === 'true') {
+            $this->markTestSkipped('Skipping E2E tests in GitHub Actions environment as services are not running.');
+        }
         
         $this->client = new Client([
             'base_uri' => getenv('API_BASE_URL'),
