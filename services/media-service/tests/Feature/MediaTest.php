@@ -37,7 +37,7 @@ class MediaTest extends TestCase
         Storage::fake('s3');
         $file = UploadedFile::fake()->image('test.jpg');
 
-        $response = $this->postJson('/api/media', [
+        $response = $this->postJson('/api/media/upload', [
             'file' => $file,
             'owner_service' => 'messaging-service',
         ]);
