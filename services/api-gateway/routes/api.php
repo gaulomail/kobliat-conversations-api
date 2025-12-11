@@ -7,37 +7,37 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->middleware(ApiKeyMiddleware::class)->group(function () {
-    
+
     // Aggregated Endpoints
     Route::get('/conversations/{id}/details', [GatewayController::class, 'getConversationDetails']);
 
     // Proxy Pass-throughs (Explicit routes are better than catch-all for documentation)
-    
+
     // Customer Service
     Route::post('/customers', function () {
-        return app(GatewayController::class)->proxy(request(), 'customer', "/api/customers");
+        return app(GatewayController::class)->proxy(request(), 'customer', '/api/customers');
     });
     Route::get('/customers/{id}', function ($id) {
         return app(GatewayController::class)->proxy(request(), 'customer', "/api/customers/{$id}");
     });
-    
+
     // Conversation Service
     Route::get('/conversations', function () {
-        return app(GatewayController::class)->proxy(request(), 'conversation', "/api/conversations");
+        return app(GatewayController::class)->proxy(request(), 'conversation', '/api/conversations');
     });
     Route::post('/conversations', function () {
-        return app(GatewayController::class)->proxy(request(), 'conversation', "/api/conversations");
+        return app(GatewayController::class)->proxy(request(), 'conversation', '/api/conversations');
     });
     Route::get('/conversations/{id}', function ($id) {
         return app(GatewayController::class)->proxy(request(), 'conversation', "/api/conversations/{$id}");
     });
-    
+
     // Messaging Service
     Route::get('/conversations/{conversationId}/messages', function ($conversationId) {
         return app(GatewayController::class)->proxy(request(), 'messaging', "/api/conversations/{$conversationId}/messages");
     });
     Route::post('/messages', function () {
-        return app(GatewayController::class)->proxy(request(), 'messaging', "/api/messages");
+        return app(GatewayController::class)->proxy(request(), 'messaging', '/api/messages');
     });
     Route::put('/messages/{id}', function ($id) {
         return app(GatewayController::class)->proxy(request(), 'messaging', "/api/messages/{$id}");
@@ -46,22 +46,22 @@ Route::prefix('v1')->middleware(ApiKeyMiddleware::class)->group(function () {
     // Media Service
     Route::post('/media/upload', function (Request $request) {
         try {
-            if (!$request->hasFile('file')) {
+            if (! $request->hasFile('file')) {
                 return response()->json(['error' => 'No file provided'], 400);
             }
-            
+
             $file = $request->file('file');
             $ownerService = $request->input('owner_service', 'unknown');
-            
+
             // Forward to Media Service
             $response = Http::attach(
                 'file',
                 file_get_contents($file->getRealPath()),
                 $file->getClientOriginalName()
             )->post('http://localhost:8004/api/media/upload', [
-                'owner_service' => $ownerService
+                'owner_service' => $ownerService,
             ]);
-            
+
             return response()->json($response->json(), $response->status());
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);

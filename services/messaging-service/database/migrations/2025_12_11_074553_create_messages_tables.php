@@ -2,8 +2,8 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -23,13 +23,13 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->uuid('conversation_id')->index();
             $table->uuid('sender_customer_id')->nullable(); // Null for system/bot
-            
+
             if (config('database.default') === 'sqlite') {
-                 $table->string('direction');
+                $table->string('direction');
             } else {
-                 $table->addColumn('direction', 'message_direction');
+                $table->addColumn('direction', 'message_direction');
             }
-            
+
             $table->string('channel')->default('whatsapp');
             $table->string('external_message_id')->nullable();
             $table->text('body')->nullable();
@@ -39,7 +39,7 @@ return new class extends Migration
             $table->timestampTz('sent_at')->nullable();
             $table->boolean('is_processed')->default(false);
             $table->timestampsTz();
-            
+
             $table->index('sent_at');
         });
 
@@ -48,13 +48,13 @@ return new class extends Migration
             $table->uuid('message_id');
             $table->uuid('conversation_id');
             $table->uuid('customer_id')->nullable(); // Who edited it
-            
+
             if (config('database.default') === 'sqlite') {
-                 $table->string('direction');
+                $table->string('direction');
             } else {
-                 $table->addColumn('direction', 'message_direction');
+                $table->addColumn('direction', 'message_direction');
             }
-            
+
             $table->text('body')->nullable();
             $table->text('previous_body')->nullable();
             $table->timestampTz('edited_at')->useCurrent();
@@ -69,6 +69,6 @@ return new class extends Migration
     {
         Schema::dropIfExists('message_history');
         Schema::dropIfExists('messages');
-        DB::statement("DROP TYPE IF EXISTS message_direction");
+        DB::statement('DROP TYPE IF EXISTS message_direction');
     }
 };

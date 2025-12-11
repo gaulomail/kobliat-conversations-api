@@ -38,6 +38,7 @@ class Customer extends UuidModel
 
         if ($customer) {
             $customer->update($data);
+
             return $customer;
         }
 

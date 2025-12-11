@@ -2,22 +2,24 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\MediaUploaded;
 use App\Models\Media;
 use App\Services\S3StorageService;
 use App\Services\VirusScannerService;
-use App\Events\MediaUploaded;
-use Kobliat\Shared\Events\EventBus;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Kobliat\Shared\Events\EventBus;
 
 class MediaController extends Controller
 {
     private S3StorageService $storage;
+
     private VirusScannerService $scanner;
+
     private EventBus $eventBus;
 
     public function __construct(
-        S3StorageService $storage, 
+        S3StorageService $storage,
         VirusScannerService $scanner,
         EventBus $eventBus
     ) {
@@ -36,7 +38,7 @@ class MediaController extends Controller
         $file = $request->file('file');
 
         // 1. Scan for viruses
-        if (!$this->scanner->isSafe($file)) {
+        if (! $this->scanner->isSafe($file)) {
             return response()->json(['error' => 'File rejected by virus scanner'], 400);
         }
 
@@ -68,6 +70,7 @@ class MediaController extends Controller
     public function show(string $id): JsonResponse
     {
         $media = Media::findOrFail($id);
+
         return response()->json($media);
     }
 
@@ -75,10 +78,10 @@ class MediaController extends Controller
     {
         $media = Media::findOrFail($id);
         $url = $this->storage->getPresignedUrl($media->storage_key);
-        
+
         return response()->json([
             'download_url' => $url,
-            'expires_in_seconds' => 3600
+            'expires_in_seconds' => 3600,
         ]);
     }
 }

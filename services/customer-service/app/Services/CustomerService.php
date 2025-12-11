@@ -2,10 +2,10 @@
 
 namespace App\Services;
 
-use App\Models\Customer;
 use App\Events\CustomerCreated;
-use Kobliat\Shared\Events\EventBus;
+use App\Models\Customer;
 use Illuminate\Support\Facades\Log;
+use Kobliat\Shared\Events\EventBus;
 
 class CustomerService
 {
@@ -30,6 +30,7 @@ class CustomerService
 
         if ($customer) {
             Log::info('Customer found', ['customer_id' => $customer->id]);
+
             return $customer;
         }
 

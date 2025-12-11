@@ -3,11 +3,11 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 class ServiceControlController extends Controller
 {
     private string $scriptPath;
+
     private array $validServices = [
         'api-gateway',
         'customer-service',
@@ -25,13 +25,13 @@ class ServiceControlController extends Controller
 
     public function start(string $service): JsonResponse
     {
-        if (!in_array($service, $this->validServices)) {
+        if (! in_array($service, $this->validServices)) {
             return response()->json(['error' => 'Invalid service name'], 400);
         }
 
         $output = [];
         $returnCode = 0;
-        
+
         exec("bash {$this->scriptPath} start {$service} 2>&1", $output, $returnCode);
 
         return response()->json([
@@ -39,13 +39,13 @@ class ServiceControlController extends Controller
             'action' => 'start',
             'success' => $returnCode === 0,
             'message' => implode("\n", $output),
-            'timestamp' => now()->toIso8601String()
+            'timestamp' => now()->toIso8601String(),
         ]);
     }
 
     public function stop(string $service): JsonResponse
     {
-        if (!in_array($service, $this->validServices)) {
+        if (! in_array($service, $this->validServices)) {
             return response()->json(['error' => 'Invalid service name'], 400);
         }
 
@@ -53,13 +53,13 @@ class ServiceControlController extends Controller
         if ($service === 'api-gateway') {
             return response()->json([
                 'error' => 'Cannot stop API Gateway from itself',
-                'message' => 'Stopping the API Gateway would prevent further control operations'
+                'message' => 'Stopping the API Gateway would prevent further control operations',
             ], 400);
         }
 
         $output = [];
         $returnCode = 0;
-        
+
         exec("bash {$this->scriptPath} stop {$service} 2>&1", $output, $returnCode);
 
         return response()->json([
@@ -67,13 +67,13 @@ class ServiceControlController extends Controller
             'action' => 'stop',
             'success' => $returnCode === 0,
             'message' => implode("\n", $output),
-            'timestamp' => now()->toIso8601String()
+            'timestamp' => now()->toIso8601String(),
         ]);
     }
 
     public function restart(string $service): JsonResponse
     {
-        if (!in_array($service, $this->validServices)) {
+        if (! in_array($service, $this->validServices)) {
             return response()->json(['error' => 'Invalid service name'], 400);
         }
 
@@ -81,13 +81,13 @@ class ServiceControlController extends Controller
         if ($service === 'api-gateway') {
             return response()->json([
                 'error' => 'Cannot restart API Gateway from itself',
-                'message' => 'Restarting the API Gateway would interrupt the operation'
+                'message' => 'Restarting the API Gateway would interrupt the operation',
             ], 400);
         }
 
         $output = [];
         $returnCode = 0;
-        
+
         exec("bash {$this->scriptPath} restart {$service} 2>&1", $output, $returnCode);
 
         return response()->json([
@@ -95,28 +95,28 @@ class ServiceControlController extends Controller
             'action' => 'restart',
             'success' => $returnCode === 0,
             'message' => implode("\n", $output),
-            'timestamp' => now()->toIso8601String()
+            'timestamp' => now()->toIso8601String(),
         ]);
     }
 
     public function status(string $service): JsonResponse
     {
-        if (!in_array($service, $this->validServices)) {
+        if (! in_array($service, $this->validServices)) {
             return response()->json(['error' => 'Invalid service name'], 400);
         }
 
         $output = [];
         $returnCode = 0;
-        
+
         exec("bash {$this->scriptPath} status {$service} 2>&1", $output, $returnCode);
-        
+
         $statusOutput = implode("\n", $output);
         $isRunning = strpos($statusOutput, 'running:') === 0;
         $pid = null;
-        
+
         if ($isRunning) {
             $parts = explode(':', $statusOutput);
-            $pid = isset($parts[1]) ? (int)$parts[1] : null;
+            $pid = isset($parts[1]) ? (int) $parts[1] : null;
         }
 
         return response()->json([
@@ -124,7 +124,7 @@ class ServiceControlController extends Controller
             'running' => $isRunning,
             'pid' => $pid,
             'status' => $isRunning ? 'running' : 'stopped',
-            'timestamp' => now()->toIso8601String()
+            'timestamp' => now()->toIso8601String(),
         ]);
     }
 }

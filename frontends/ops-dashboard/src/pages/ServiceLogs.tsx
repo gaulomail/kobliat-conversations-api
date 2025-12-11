@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { FileText, AlertCircle, RefreshCw, Download } from 'lucide-react';
 import Button from '../components/Button';
 import DashboardLayout from '../layouts/DashboardLayout';
@@ -27,11 +27,11 @@ const ServiceLogs: React.FC = () => {
     const [autoRefresh, setAutoRefresh] = useState(false);
     const [filter, setFilter] = useState<'all' | 'error' | 'warning'>('all');
 
-    const fetchLogs = async () => {
+    const fetchLogs = useCallback(async () => {
         setLoading(true);
         try {
             const response = await fetch(
-                `http://localhost:8000/api/v1/service-logs/${selectedService.service.toLowerCase().replace(/\s+/g, '-')}?lines=500&filter=${filter}`,
+                `http://localhost:8000/api/v1/logs?path=${encodeURIComponent(selectedService.logPath)}`,
                 {
                     headers: {
                         'X-API-Key': 'kobliat-secret-key'
@@ -51,18 +51,18 @@ const ServiceLogs: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [selectedService]);
 
     useEffect(() => {
         fetchLogs();
-    }, [selectedService]);
+    }, [fetchLogs]);
 
     useEffect(() => {
         if (autoRefresh) {
             const interval = setInterval(fetchLogs, 5000);
             return () => clearInterval(interval);
         }
-    }, [autoRefresh, selectedService]);
+    }, [autoRefresh, fetchLogs]);
 
     const filteredLogs = logs.split('\n').filter(line => {
         if (filter === 'error') return line.includes('ERROR');

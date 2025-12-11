@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Http;
 
 class ServiceProxyService
 {
@@ -12,12 +12,12 @@ class ServiceProxyService
         // Resolve service URL from env
         // e.g. SERVICE_CUSTOMER_URL=http://localhost:8001
         $baseUrl = env(strtoupper("SERVICE_{$service}_URL"));
-        
-        if (!$baseUrl) {
+
+        if (! $baseUrl) {
             throw new \Exception("Service URL not configured for {$service}");
         }
 
-        $url = rtrim($baseUrl, '/') . '/' . ltrim($path, '/');
+        $url = rtrim($baseUrl, '/').'/'.ltrim($path, '/');
 
         return Http::withHeaders($headers)
             ->$method($url, $data);

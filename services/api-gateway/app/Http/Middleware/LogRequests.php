@@ -2,11 +2,11 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\ApiLog;
 use Closure;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response;
-use App\Models\ApiLog;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpFoundation\Response;
 
 class LogRequests
 {
@@ -35,7 +35,7 @@ class LogRequests
                 'headers' => json_encode($request->headers->all()),
             ]);
         } catch (\Exception $e) {
-            Log::error('Failed to log request: ' . $e->getMessage());
+            Log::error('Failed to log request: '.$e->getMessage());
         }
 
         return $response;
@@ -50,16 +50,17 @@ class LogRequests
             if (strlen($json) > 10000) { // 10KB limit
                 return ['_truncated' => true, '_size' => strlen($json)];
             }
+
             return $data;
         }
-        
+
         $content = $response->getContent();
         if (strlen($content) > 10000) { // 10KB limit
             return ['_truncated' => true, '_size' => strlen($content)];
         }
-        
+
         $json = json_decode($content, true);
-        
+
         return json_last_error() === JSON_ERROR_NONE ? $json : null;
     }
 }

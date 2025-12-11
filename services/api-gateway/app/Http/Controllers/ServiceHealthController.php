@@ -19,25 +19,25 @@ class ServiceHealthController extends Controller
     public function checkAll(): JsonResponse
     {
         $results = [];
-        
+
         foreach ($this->services as $key => $config) {
             $results[$key] = $this->checkService($key, $config);
         }
 
         return response()->json([
             'services' => $results,
-            'checked_at' => now()->toIso8601String()
+            'checked_at' => now()->toIso8601String(),
         ]);
     }
 
     public function checkOne(string $service): JsonResponse
     {
-        if (!isset($this->services[$service])) {
+        if (! isset($this->services[$service])) {
             return response()->json(['error' => 'Service not found'], 404);
         }
 
         $result = $this->checkService($service, $this->services[$service]);
-        
+
         return response()->json($result);
     }
 
@@ -50,6 +50,7 @@ class ServiceHealthController extends Controller
 
             if ($response->successful()) {
                 $data = $response->json();
+
                 return [
                     'name' => $this->formatName($name),
                     'key' => $name,
@@ -58,7 +59,7 @@ class ServiceHealthController extends Controller
                     'response_time' => $responseTime,
                     'version' => $data['version'] ?? 'unknown',
                     'uptime' => $data['uptime'] ?? null,
-                    'last_checked' => now()->toIso8601String()
+                    'last_checked' => now()->toIso8601String(),
                 ];
             }
 
@@ -68,8 +69,8 @@ class ServiceHealthController extends Controller
                 'status' => 'unhealthy',
                 'port' => $config['port'],
                 'response_time' => $responseTime,
-                'error' => 'HTTP ' . $response->status(),
-                'last_checked' => now()->toIso8601String()
+                'error' => 'HTTP '.$response->status(),
+                'last_checked' => now()->toIso8601String(),
             ];
 
         } catch (\Exception $e) {
@@ -78,8 +79,8 @@ class ServiceHealthController extends Controller
                 'key' => $name,
                 'status' => 'offline',
                 'port' => $config['port'],
-                'error' => 'Connection failed: ' . $e->getMessage(),
-                'last_checked' => now()->toIso8601String()
+                'error' => 'Connection failed: '.$e->getMessage(),
+                'last_checked' => now()->toIso8601String(),
             ];
         }
     }
@@ -96,7 +97,7 @@ class ServiceHealthController extends Controller
         return response()->json([
             'message' => 'Service restart requires system-level permissions',
             'service' => $service,
-            'suggestion' => "Run: cd services/{$service} && php artisan serve --port={$this->services[$service]['port']}"
+            'suggestion' => "Run: cd services/{$service} && php artisan serve --port={$this->services[$service]['port']}",
         ]);
     }
 }

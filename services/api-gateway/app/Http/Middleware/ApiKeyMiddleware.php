@@ -16,7 +16,7 @@ class ApiKeyMiddleware
         $apiKey = $request->header('X-API-Key');
         $validKey = env('API_GATEWAY_KEY', 'kobliat-secret-key');
 
-        if (!$apiKey || $apiKey !== $validKey) {
+        if (! $apiKey || $apiKey !== $validKey) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 

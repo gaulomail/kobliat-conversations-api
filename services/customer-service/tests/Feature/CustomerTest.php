@@ -2,12 +2,11 @@
 
 namespace Tests\Feature;
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Foundation\Testing\WithFaker;
-use Tests\TestCase;
 use App\Models\Customer;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Kobliat\Shared\Events\EventBus;
 use Mockery;
+use Tests\TestCase;
 
 class CustomerTest extends TestCase
 {
@@ -16,11 +15,11 @@ class CustomerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         // Mock EventBus to prevent external calls
         $mockBus = Mockery::mock(EventBus::class);
         $mockBus->shouldReceive('publishEvent')->byDefault();
-        
+
         $this->app->instance(EventBus::class, $mockBus);
     }
 
@@ -30,17 +29,17 @@ class CustomerTest extends TestCase
             'external_id' => '1234567890',
             'external_type' => 'whatsapp',
             'name' => 'John Doe',
-            'metadata' => ['vip' => true]
+            'metadata' => ['vip' => true],
         ]);
 
         $response->assertStatus(201)
             ->assertJson([
                 'external_id' => '1234567890',
-                'name' => 'John Doe'
+                'name' => 'John Doe',
             ]);
 
         $this->assertDatabaseHas('customers', [
-            'external_id' => '1234567890'
+            'external_id' => '1234567890',
         ]);
     }
 
@@ -49,14 +48,14 @@ class CustomerTest extends TestCase
         Customer::create([
             'external_id' => '9876543210',
             'external_type' => 'whatsapp',
-            'name' => 'Jane Doe'
+            'name' => 'Jane Doe',
         ]);
 
         $response = $this->getJson('/api/customers/external/whatsapp/9876543210');
 
         $response->assertStatus(200)
             ->assertJson([
-                'name' => 'Jane Doe'
+                'name' => 'Jane Doe',
             ]);
     }
 

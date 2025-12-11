@@ -2,12 +2,12 @@
 
 namespace Tests\Feature;
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Tests\TestCase;
 use App\Models\Conversation;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Kobliat\Shared\Events\EventBus;
 use Mockery;
-use Illuminate\Support\Str;
+use Tests\TestCase;
 
 class ConversationTest extends TestCase
 {
@@ -16,7 +16,7 @@ class ConversationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         $mockBus = Mockery::mock(EventBus::class);
         $mockBus->shouldReceive('publishEvent')->byDefault();
         $this->app->instance(EventBus::class, $mockBus);
@@ -28,19 +28,19 @@ class ConversationTest extends TestCase
             'type' => 'direct',
             'participants' => [
                 (string) Str::uuid(),
-                (string) Str::uuid()
-            ]
+                (string) Str::uuid(),
+            ],
         ];
 
         $response = $this->postJson('/api/conversations', $payload);
 
         $response->assertStatus(201)
             ->assertJsonPath('type', 'direct');
-            
+
         $this->assertDatabaseHas('conversations', [
-            'type' => 'direct'
+            'type' => 'direct',
         ]);
-        
+
         $this->assertDatabaseCount('conversation_participants', 2);
     }
 

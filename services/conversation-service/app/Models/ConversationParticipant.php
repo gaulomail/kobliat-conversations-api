@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-use Kobliat\Shared\Database\UuidModel;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Kobliat\Shared\Database\UuidModel;
 
 class ConversationParticipant extends UuidModel
 {

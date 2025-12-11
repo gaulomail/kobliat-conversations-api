@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Services\CustomerService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class CustomerController extends Controller
 {
@@ -23,9 +23,9 @@ class CustomerController extends Controller
     {
         $customer = $this->customerService->findById($id);
 
-        if (!$customer) {
+        if (! $customer) {
             return response()->json([
-                'error' => 'Customer not found'
+                'error' => 'Customer not found',
             ], 404);
         }
 
@@ -58,9 +58,9 @@ class CustomerController extends Controller
     {
         $customer = $this->customerService->findByExternal($type, $id);
 
-        if (!$customer) {
+        if (! $customer) {
             return response()->json([
-                'error' => 'Customer not found'
+                'error' => 'Customer not found',
             ], 404);
         }
 

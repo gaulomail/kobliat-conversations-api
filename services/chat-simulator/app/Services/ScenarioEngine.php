@@ -16,7 +16,7 @@ class ScenarioEngine
     public function runScenario(string $scenario, string $targetUrl): array
     {
         // 1. Generate Content
-        $message = $this->gemini->generateResponse("Start a conversation", $scenario);
+        $message = $this->gemini->generateResponse('Start a conversation', $scenario);
 
         // 2. Send to Inbound Gateway (simulating a webhook)
         // Ensure INBOUND_GATEWAY_URL is set
@@ -37,13 +37,13 @@ class ScenarioEngine
                                             'text' => ['body' => $message],
                                             'type' => 'text',
                                             'timestamp' => time(),
-                                        ]
-                                    ]
-                                ]
-                            ]
-                        ]
-                    ]
-                ]
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
             ]);
 
             return [

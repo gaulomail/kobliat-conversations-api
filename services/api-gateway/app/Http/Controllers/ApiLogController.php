@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\ApiLog;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class ApiLogController extends Controller
 {
@@ -21,7 +21,7 @@ class ApiLogController extends Controller
         }
 
         if ($request->has('path')) {
-            $query->where('path', 'like', '%' . $request->query('path') . '%');
+            $query->where('path', 'like', '%'.$request->query('path').'%');
         }
 
         return response()->json($query->paginate(50));
@@ -30,6 +30,7 @@ class ApiLogController extends Controller
     public function show(string $id): JsonResponse
     {
         $log = ApiLog::findOrFail($id);
+
         return response()->json($log);
     }
 }

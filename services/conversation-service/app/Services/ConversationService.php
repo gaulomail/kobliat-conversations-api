@@ -2,13 +2,12 @@
 
 namespace App\Services;
 
-use App\Models\Conversation;
-use App\Models\ConversationParticipant;
 use App\Events\ConversationOpened;
 use App\Events\ConversationParticipantAdded;
-use Kobliat\Shared\Events\EventBus;
+use App\Models\Conversation;
+use App\Models\ConversationParticipant;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+use Kobliat\Shared\Events\EventBus;
 
 class ConversationService
 {
@@ -22,7 +21,7 @@ class ConversationService
     public function createDirectConversation(string $customerId1, string $customerId2): Conversation
     {
         // TODO: Check if direct conversation already exists between these two
-        
+
         return DB::transaction(function () use ($customerId1, $customerId2) {
             $conversation = Conversation::create([
                 'type' => 'direct',

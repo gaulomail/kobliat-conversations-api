@@ -8,7 +8,7 @@ class PayloadNormalizer
     {
         // Simple normalization based on provider
         // Returns [id, type, body, sender]
-        
+
         $id = uniqid();
         $body = '';
 

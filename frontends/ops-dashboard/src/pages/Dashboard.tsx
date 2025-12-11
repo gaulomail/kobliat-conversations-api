@@ -405,7 +405,7 @@ function Dashboard() {
                                     <div>
                                         <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-3">Request Body</h4>
                                         <div className="p-4 bg-gray-900 rounded-xl overflow-x-auto">
-                                            <pre className="text-sm text-gray-300 font-mono">{JSON.stringify(selectedLog.request_payload as any, null, 2)}</pre>
+                                            <pre className="text-sm text-gray-300 font-mono">{JSON.stringify(selectedLog.request_payload as unknown, null, 2)}</pre>
                                         </div>
                                     </div>
                                 )}
@@ -414,7 +414,7 @@ function Dashboard() {
                                     <div>
                                         <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-3">Response Body</h4>
                                         <div className="p-4 bg-gray-900 rounded-xl overflow-x-auto">
-                                            <pre className="text-sm text-gray-300 font-mono">{JSON.stringify(selectedLog.response_payload as any, null, 2)}</pre>
+                                            <pre className="text-sm text-gray-300 font-mono">{JSON.stringify(selectedLog.response_payload as unknown, null, 2)}</pre>
                                         </div>
                                     </div>
                                 )}

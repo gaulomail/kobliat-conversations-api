@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Services\ServiceProxyService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class GatewayController extends Controller
 {
@@ -22,16 +22,16 @@ class GatewayController extends Controller
     {
         try {
             $response = $this->proxy->forward(
-                $service, 
-                strtolower($request->method()), 
-                $path, 
+                $service,
+                strtolower($request->method()),
+                $path,
                 $request->all(),
                 $request->headers->all() // Be careful forwarding all headers in prod
             );
 
             return response()->json($response->json(), $response->status());
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Gateway Error: ' . $e->getMessage()], 502);
+            return response()->json(['error' => 'Gateway Error: '.$e->getMessage()], 502);
         }
     }
 

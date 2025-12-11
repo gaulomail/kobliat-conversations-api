@@ -2,15 +2,14 @@
 
 namespace Tests\Feature;
 
-use Tests\TestCase;
-use App\Models\Media;
 use App\Services\S3StorageService;
 use App\Services\VirusScannerService;
-use Kobliat\Shared\Events\EventBus;
-use Mockery;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Kobliat\Shared\Events\EventBus;
+use Mockery;
+use Tests\TestCase;
 
 class MediaTest extends TestCase
 {
@@ -19,7 +18,7 @@ class MediaTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         $mockBus = Mockery::mock(EventBus::class);
         $mockBus->shouldReceive('publishEvent')->byDefault();
         $this->app->instance(EventBus::class, $mockBus);
@@ -40,7 +39,7 @@ class MediaTest extends TestCase
 
         $response = $this->postJson('/api/media', [
             'file' => $file,
-            'owner_service' => 'messaging-service'
+            'owner_service' => 'messaging-service',
         ]);
 
         $response->assertStatus(201)
@@ -48,7 +47,7 @@ class MediaTest extends TestCase
 
         $this->assertDatabaseHas('media', [
             'filename' => 'test.jpg',
-            'storage_key' => 'uploads/test.jpg'
+            'storage_key' => 'uploads/test.jpg',
         ]);
     }
 }

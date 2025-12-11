@@ -122,17 +122,17 @@ export const getServiceEvents = async (): Promise<ServiceEvent[]> => {
     return [];
 };
 
-export const startService = async (serviceKey: string): Promise<any> => {
+export const startService = async (serviceKey: string): Promise<unknown> => {
     const response = await api.post(`/services/${serviceKey}/start`);
     return response.data;
 };
 
-export const stopService = async (serviceKey: string): Promise<any> => {
+export const stopService = async (serviceKey: string): Promise<unknown> => {
     const response = await api.post(`/services/${serviceKey}/stop`);
     return response.data;
 };
 
-export const restartService = async (serviceKey: string): Promise<any> => {
+export const restartService = async (serviceKey: string): Promise<unknown> => {
     const response = await api.post(`/services/${serviceKey}/restart`);
     return response.data;
 };

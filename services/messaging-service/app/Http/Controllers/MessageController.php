@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\MessageInboundCreated;
 use App\Models\Message;
 use App\Models\MessageHistory;
-use App\Events\MessageInboundCreated;
-use Kobliat\Shared\Events\EventBus;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Kobliat\Shared\Events\EventBus;
 
 class MessageController extends Controller
 {
@@ -55,7 +55,7 @@ class MessageController extends Controller
     public function update(Request $request, string $id): JsonResponse
     {
         $message = Message::findOrFail($id);
-        
+
         $validated = $request->validate([
             'body' => 'required|string',
         ]);
@@ -64,7 +64,7 @@ class MessageController extends Controller
         MessageHistory::create([
             'message_id' => $message->id,
             'conversation_id' => $message->conversation_id,
-            'customer_id' => $message->sender_customer_id, 
+            'customer_id' => $message->sender_customer_id,
             'direction' => $message->direction,
             'body' => $validated['body'],
             'previous_body' => $message->body,

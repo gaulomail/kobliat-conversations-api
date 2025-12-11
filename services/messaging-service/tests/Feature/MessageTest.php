@@ -2,12 +2,12 @@
 
 namespace Tests\Feature;
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Tests\TestCase;
 use App\Models\Message;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Kobliat\Shared\Events\EventBus;
 use Mockery;
-use Illuminate\Support\Str;
+use Tests\TestCase;
 
 class MessageTest extends TestCase
 {
@@ -16,7 +16,7 @@ class MessageTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         $mockBus = Mockery::mock(EventBus::class);
         $mockBus->shouldReceive('publishEvent')->byDefault();
         $this->app->instance(EventBus::class, $mockBus);
@@ -28,21 +28,21 @@ class MessageTest extends TestCase
             'conversation_id' => (string) Str::uuid(),
             'direction' => 'outbound',
             'body' => 'Hello World',
-            'sender_customer_id' => (string) Str::uuid()
+            'sender_customer_id' => (string) Str::uuid(),
         ];
         $response = $this->postJson('/api/messages', $payload);
-        
+
         if ($response->status() !== 201) {
-             dump($response->content());
+            dump($response->content());
         }
 
         $response->assertStatus(201)
             ->assertJson([
-                'body' => 'Hello World'
+                'body' => 'Hello World',
             ]);
 
         $this->assertDatabaseHas('messages', [
-            'body' => 'Hello World'
+            'body' => 'Hello World',
         ]);
     }
 
@@ -53,7 +53,7 @@ class MessageTest extends TestCase
             'conversation_id' => $convId,
             'direction' => 'outbound',
             'body' => 'Msg 1',
-            'sender_customer_id' => (string) Str::uuid()
+            'sender_customer_id' => (string) Str::uuid(),
         ]);
 
         $response = $this->getJson("/api/conversations/{$convId}/messages");

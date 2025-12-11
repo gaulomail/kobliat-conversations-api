@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\ConversationService;
 use App\Models\Conversation;
-use Illuminate\Http\Request;
+use App\Services\ConversationService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class ConversationController extends Controller
 {
@@ -24,9 +24,10 @@ class ConversationController extends Controller
     public function show(string $id): JsonResponse
     {
         $conversation = $this->conversationService->findById($id);
-        if (!$conversation) {
+        if (! $conversation) {
             return response()->json(['error' => 'Not found'], 404);
         }
+
         return response()->json($conversation);
     }
 

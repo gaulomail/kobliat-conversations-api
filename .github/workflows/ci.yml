@@ -27,15 +27,16 @@ jobs:
           cd packages/kobliat-shared
           composer install --prefer-dist --no-progress --no-suggest
 
-      - name: PHP Code Style (PSR-12)
+      - name: PHP Code Style (Laravel Pint)
         run: |
-          # Check all services for PSR-12 compliance
+          # Check all services for code style with Pint
           for service in services/*/; do
             if [ -f "$service/composer.json" ]; then
               echo "Checking code style in $service"
               cd "$service"
-              if [ -f "vendor/bin/phpcs" ]; then
-                vendor/bin/phpcs --standard=PSR12 app/ || true
+              if [ -f "vendor/bin/pint" ]; then
+                # Run Pint in test mode
+                vendor/bin/pint --test
               fi
               cd ../..
             fi

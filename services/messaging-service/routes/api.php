@@ -12,6 +12,6 @@ Route::get('/health', function () {
         'status' => 'healthy',
         'service' => basename(getcwd()),
         'version' => '1.0.0',
-        'timestamp' => now()->toIso8601String()
+        'timestamp' => now()->toIso8601String(),
     ]);
 });

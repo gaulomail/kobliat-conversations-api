@@ -2,11 +2,11 @@
 
 namespace Tests\Feature;
 
-use Tests\TestCase;
-use Kobliat\Shared\Events\EventBus;
-use Mockery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
+use Kobliat\Shared\Events\EventBus;
+use Mockery;
+use Tests\TestCase;
 
 class InboundWebhookTest extends TestCase
 {
@@ -15,7 +15,7 @@ class InboundWebhookTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         $mockBus = Mockery::mock(EventBus::class);
         $mockBus->shouldReceive('publishEvent')->byDefault();
         $this->app->instance(EventBus::class, $mockBus);
@@ -24,13 +24,13 @@ class InboundWebhookTest extends TestCase
     public function test_can_receive_whatsapp_webhook()
     {
         // ... (cache mock is irrelevant now)
-        
+
         $payload = [
             'id' => 'evt_123',
             'type' => 'message',
             'from' => '1234567890',
             'body' => 'Hello',
-            'timestamp' => time()
+            'timestamp' => time(),
         ];
 
         $response = $this->postJson('/api/webhooks/whatsapp', $payload);
@@ -47,16 +47,16 @@ class InboundWebhookTest extends TestCase
             'provider_message_id' => 'evt_123', // Normalized ID logic will pick 'evt_123' from raw payload['id']
             'headers' => [],
             'raw_payload' => [],
-            'is_processed' => true
+            'is_processed' => true,
         ]);
 
         $payload = [
             'messages' => [
                 [
                     'id' => 'evt_123',
-                    'text' => ['body' => 'Duplicate']
-                ]
-            ]
+                    'text' => ['body' => 'Duplicate'],
+                ],
+            ],
         ];
 
         $response = $this->postJson('/api/webhooks/whatsapp', $payload);

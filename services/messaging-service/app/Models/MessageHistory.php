@@ -2,12 +2,12 @@
 
 namespace App\Models;
 
-use Kobliat\Shared\Database\UuidModel;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Kobliat\Shared\Database\UuidModel;
 
 class MessageHistory extends UuidModel
 {
-    public $timestamps = false; 
+    public $timestamps = false;
 
     protected $table = 'message_history';
 

@@ -14,8 +14,9 @@ class S3StorageService
     public function store(UploadedFile $file, string $path = 'uploads'): string
     {
         // For MinIO compatibility, ensure visibility is correct if using public buckets
-        $filename = Str::uuid() . '.' . $file->getClientOriginalExtension();
+        $filename = Str::uuid().'.'.$file->getClientOriginalExtension();
         $key = $file->storeAs($path, $filename, 's3');
+
         return $key;
     }
 
