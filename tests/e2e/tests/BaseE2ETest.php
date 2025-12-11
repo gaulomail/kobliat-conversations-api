@@ -5,7 +5,7 @@ namespace Tests;
 use PHPUnit\Framework\TestCase;
 use GuzzleHttp\Client;
 
-class BaseE2ETest extends TestCase
+abstract class BaseE2ETest extends TestCase
 {
     protected Client $client;
 
