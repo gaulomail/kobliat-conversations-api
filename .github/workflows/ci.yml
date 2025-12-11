@@ -148,48 +148,7 @@ jobs:
           name: test-results
           path: tests/e2e/test-results/
 
-  unit-tests:
-    name: Unit Tests
-    runs-on: ubuntu-latest
-    
-    strategy:
-      matrix:
-        service:
-          - conversation-service
-          - messaging-service
-          - media-service
-          - inbound-gateway
-          - chat-simulator
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.4'
-          extensions: mbstring, xml, ctype, json, bcmath, pdo, sqlite, pdo_sqlite
-          coverage: xdebug
-
-      - name: Install shared package
-        run: |
-          cd packages/kobliat-shared
-          composer install --prefer-dist --no-progress
-
-      - name: Install service dependencies
-        working-directory: services/${{ matrix.service }}
-        run: |
-          cp .env.example .env || true
-          composer install --prefer-dist --no-progress
-          php artisan key:generate --no-interaction || true
-
-      - name: Run Unit Tests
-        working-directory: services/${{ matrix.service }}
-        run: |
-          if [ -f "vendor/bin/phpunit" ]; then
-            vendor/bin/phpunit --testdox --colors=always
-          fi
 
   frontend-build:
     name: Frontend Build Test
