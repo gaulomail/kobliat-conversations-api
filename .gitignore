@@ -49,6 +49,7 @@ public/mix-manifest.json
 coverage/
 .phpunit.result.cache
 phpunit.xml
+!tests/e2e/phpunit.xml
 
 # Logs
 npm-debug.log*
