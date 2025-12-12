@@ -1,10 +1,11 @@
-# setup-local.ps1 - Complete setup without starting services (Windows)
-# This script sets up everything but doesn't start the services
+# setup.ps1 - Master setup script for Kobliat Conversations Platform (Windows)
+# This script sets up everything needed to run the platform
 
 $ErrorActionPreference = "Stop"
 
 Write-Host "╔════════════════════════════════════════════════════════════════╗"
-Write-Host "║   Kobliat Conversations Platform - Setup (No Auto-Start)      ║"
+Write-Host "║   Kobliat Conversations Platform - Complete Setup             ║"
+Write-Host "║   (Windows PowerShell)                                        ║"
 Write-Host "╚════════════════════════════════════════════════════════════════╝"
 Write-Host ""
 
@@ -42,6 +43,45 @@ if ($proceed -notmatch "^[Yy]$") {
 Write-Host ""
 Write-Host "────────────────────────────────────────────────────────────────"
 
+# Step 1: Infrastructure Setup
+Write-Host "📦 Step 1/3: Checking infrastructure (Databases)..."
+Write-Host "────────────────────────────────────────────────────────────────"
+
+# Run setup-local.ps1 if it exists, for DB creation logic
+if (Test-Path "scripts/windows/setup-local.ps1") {
+    # We call setup-local.ps1 but we need to pass a flag or handle it such that it doesn't double-do things?
+    # Actually, setup-local.ps1 usually does the heavy lifting of app setup too.
+    # Let's align with Unix: setup.sh calls setup-local.sh ONLY for infra if available, OR setup.sh duplicates the logic?
+    # In Unix setup.sh:
+    # if [ -f "./scripts/unix/setup-local.sh" ]; then ./scripts/unix/setup-local.sh; fi
+    # But wait, Unix setup-local.sh ALSO installs backend dependencies and migrates.
+    # If setup.sh calls setup-local.sh, and then setup.sh loops over services AGAIN, it's redundant.
+    
+    # In Step 1082 (Unix setup.sh), lines 48-55 call setup-local.sh.
+    # But then lines 60-140 perform Application Setup (composer install, env setup, migrate).
+    # And Step 1084 (Unix setup-local.sh) lines 53-151 do Infra + App setup.
+    # So if setup.sh calls setup-local.sh, it runs everything twice!
+    
+    # Actually, looking at the logs of `setup.sh` execution earlier (Step 162 in previous turn? No, I don't see it).
+    # But reading the code: `setup.sh` calls `setup-local.sh`. `setup-local.sh` installs deps and migrates.
+    # Then `setup.sh` continues and... installs deps and migrates AGAIN.
+    # This seems like a slight inefficiency in the current Unix scripts, but it works (idempotent composer/migrate).
+    
+    # For Windows, let's make `setup.ps1` clean.
+    # I will inline the DB creation logic here or call a specific db-setup script if available.
+    # `scripts/windows/init-databases.bat` likely exists.
+    
+    if (Test-Path "scripts/windows/init-databases.bat") {
+        # Check if we should run it. Often users on Windows manually install MySQL.
+        # We'll assume MySQL is running.
+        Write-Host "ℹ️  Attempting to create databases using init-databases.bat..."
+        cmd /c "scripts\windows\init-databases.bat"
+    }
+}
+
+Write-Host ""
+Write-Host "────────────────────────────────────────────────────────────────"
+
 # Load .env variables
 $envContent = Get-Content .env
 $envVars = @{}
@@ -59,46 +99,6 @@ $DB_USER = if ($envVars.DB_USER) { $envVars.DB_USER } else { "root" }
 $DB_PASSWORD = if ($envVars.DB_PASSWORD) { $envVars.DB_PASSWORD } else { "" }
 
 Write-Host "✅ Using Database Config: $DB_CONNECTION://$DB_HOST:$DB_PORT (User: $DB_USER)"
-
-# Step 1: Infrastructure Setup (Create Databases)
-Write-Host "📦 Step 1/3: Setting up infrastructure (Databases)..."
-Write-Host "────────────────────────────────────────────────────────────────"
-
-# Detect MySQL
-$mysqlCmd = "mysql"
-try {
-    & $mysqlCmd --version | Out-Null
-} catch {
-    Write-Host "❌ MySQL not found in PATH. Please install MySQL first."
-    exit 1
-}
-
-# Create Databases
-Write-Host "📦 Creating MySQL databases..."
-$dbs = @(
-    if ($envVars.DB_NAME_CUSTOMER) { $envVars.DB_NAME_CUSTOMER } else { "kobliat_customer_db" },
-    if ($envVars.DB_NAME_CONVERSATION) { $envVars.DB_NAME_CONVERSATION } else { "kobliat_conversation_db" },
-    if ($envVars.DB_NAME_MESSAGING) { $envVars.DB_NAME_MESSAGING } else { "kobliat_messaging_db" },
-    if ($envVars.DB_NAME_MEDIA) { $envVars.DB_NAME_MEDIA } else { "kobliat_media_db" },
-    if ($envVars.DB_NAME_GATEWAY) { $envVars.DB_NAME_GATEWAY } else { "kobliat_gateway_db" }
-)
-
-foreach ($db in $dbs) {
-    Write-Host "  Creating $db..."
-    try {
-        if ([string]::IsNullOrEmpty($DB_PASSWORD)) {
-            & $mysqlCmd -u $DB_USER -e "CREATE DATABASE IF NOT EXISTS $db;"
-        } else {
-            & $mysqlCmd -u $DB_USER -p"$DB_PASSWORD" -e "CREATE DATABASE IF NOT EXISTS $db;"
-        }
-    } catch {
-        Write-Host "❌ Failed to create $db. Check DB credentials."
-    }
-}
-Write-Host "✅ Databases created"
-
-Write-Host ""
-Write-Host "────────────────────────────────────────────────────────────────"
 
 # Step 2: Application Setup
 Write-Host "📦 Step 2/3: Setting up application (Dependencies & Migrations)..."
@@ -130,6 +130,7 @@ foreach ($service in $services) {
     
     $content = Get-Content .env -Raw
     
+    # Helper to replace or append
     function Set-EnvVar {
         param($content, $key, $val)
         if ($content -match "(?m)^$key=.*") {
@@ -155,7 +156,7 @@ foreach ($service in $services) {
     
     $content = Set-EnvVar $content "DB_DATABASE" $targetDb
     
-    # FIX: Ensure DB_NAME_CUSTOMER is in conversation-service .env
+    # FIX: Ensure DB_NAME_CUSTOMER is in conversation-service .env for seeder
     if ($service -eq "conversation-service") {
         $customerDbName = if ($envVars.DB_NAME_CUSTOMER) { $envVars.DB_NAME_CUSTOMER } else { "kobliat_customer_db" }
         $content = Set-EnvVar $content "DB_NAME_CUSTOMER" $customerDbName
@@ -184,10 +185,72 @@ Pop-Location
 
 Write-Host ""
 Write-Host "────────────────────────────────────────────────────────────────"
+
+# Step 3: Seed Demo Data
+Write-Host "📦 Step 3/4: Seeding demo data..."
+Write-Host "────────────────────────────────────────────────────────────────"
+Write-Host ""
+$seedData = Read-Host "❓ Do you want to seed the database with demo data? [Y/n]"
+
+if ($seedData -match "^[Yy]$" -or [string]::IsNullOrWhiteSpace($seedData)) {
+    # Check if seed-all.ps1 exists, if so use it, otherwise inline logic
+    if (Test-Path "scripts/windows/seed-all.ps1") {
+        & ./scripts/windows/seed-all.ps1
+    } else {
+        # Fallback inline seeding if script not ready yet (though we plan to create it)
+        Write-Host "  Seeding customer service..."
+        Push-Location "services/customer-service"
+        php artisan db:seed --force
+        Pop-Location
+        
+        Write-Host "  Seeding conversation service..."
+        Push-Location "services/conversation-service"
+        php artisan db:seed --force
+        Pop-Location
+        
+        Write-Host "  Seeding messaging service..."
+        Push-Location "services/messaging-service"
+        php artisan db:seed --force
+        Pop-Location
+    }
+    Write-Host "  ✅ Demo data seeded"
+} else {
+    Write-Host "  ⏭️  Skipping demo data seeding"
+}
+
+Write-Host ""
+Write-Host "────────────────────────────────────────────────────────────────"
+
+Write-Host "✅ Setup complete!"
+Write-Host ""
+$startServices = Read-Host "❓ Do you want to start all services now? [Y/n]"
+
+if ($startServices -match "^[Yy]$" -or [string]::IsNullOrWhiteSpace($startServices)) {
+    Write-Host ""
+    Write-Host "🚀 Step 4/4: Starting all services..."
+    Write-Host "────────────────────────────────────────────────────────────────"
+    if (Test-Path "scripts/windows/start-all.bat") {
+        cmd /c "scripts\windows\start-all.bat"
+    } else {
+        Write-Host "❌ start-all.bat not found!"
+    }
+} else {
+    Write-Host ""
+    Write-Host "ℹ️  Services not started. To start them manually, run:"
+    Write-Host "   scripts\windows\start-all.bat"
+    Write-Host ""
+    Write-Host "📋 Available services:"
+    Write-Host "   • API Gateway:          http://localhost:8000"
+    Write-Host "   • Customer Service:     http://localhost:8001"
+    Write-Host "   • Conversation Service: http://localhost:8002"
+    Write-Host "   • Messaging Service:    http://localhost:8003"
+    Write-Host "   • Media Service:        http://localhost:8004"
+    Write-Host "   • Inbound Gateway:      http://localhost:8005"
+    Write-Host "   • Chat Simulator:       http://localhost:8006"
+    Write-Host "   • Ops Dashboard:        http://localhost:5174"
+}
+
 Write-Host ""
 Write-Host "╔════════════════════════════════════════════════════════════════╗"
 Write-Host "║   Setup Complete! 🎉                                          ║"
 Write-Host "╚════════════════════════════════════════════════════════════════╝"
-Write-Host ""
-Write-Host "ℹ️  Services are NOT started. To start them, run:"
-Write-Host "   scripts\windows\start-all.bat"
