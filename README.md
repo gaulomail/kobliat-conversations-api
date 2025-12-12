@@ -280,6 +280,38 @@ S3_SECRET_KEY=minio123
 GEMINI_API_KEY=your_api_key_here
 ```
 
+### Seeding Demo Data
+
+The setup script will prompt you to seed demo data. You can also seed manually:
+
+**Automatic Seeding (Recommended)**:
+```bash
+# During setup, answer 'Y' when prompted:
+# "Do you want to seed the database with demo data? [Y/n]"
+```
+
+**Manual Seeding**:
+```bash
+# Seed all services
+./scripts/unix/seed-all.sh
+
+# Or seed individual services
+cd services/customer-service && php artisan db:seed
+cd services/conversation-service && php artisan db:seed  
+cd services/messaging-service && php artisan db:seed
+```
+
+**API-Based Demo Data** (creates complete conversations):
+```bash
+# Make sure services are running first
+./scripts/unix/seed-demo-data.sh
+```
+
+This creates:
+- 4 demo customers (3 users + 1 AI assistant)
+- 3 conversations
+- 6+ messages
+
 ### Access the Application
 
 Once all services are running, you can access:

@@ -3,8 +3,6 @@
 namespace App\Listeners;
 
 use App\Events\WebhookInboundReceived;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -23,22 +21,23 @@ class ProcessInboundWebhook
         // 1. Extract Data
         // Prioritize 'from'/'body' flat structure (e.g. from E2E tests or simple manual requests)
         // Fallback to WhatsApp structure
-        
-        $externalId = $payload['from'] ?? 
+
+        $externalId = $payload['from'] ??
                       ($payload['messages'][0]['from'] ?? null) ??
                       ($payload['entry'][0]['changes'][0]['value']['messages'][0]['from'] ?? null); // Facebook/WB structure
 
-        $name = $payload['name'] ?? 
+        $name = $payload['name'] ??
                 ($payload['contacts'][0]['profile']['name'] ?? 'Unknown User');
 
-        $body = $payload['text'] ?? 
-                $payload['body'] ?? 
+        $body = $payload['text'] ??
+                $payload['body'] ??
                 ($payload['messages'][0]['text']['body'] ?? null) ??
                 ($payload['entry'][0]['changes'][0]['value']['messages'][0]['text']['body'] ?? null) ??
                 '';
 
-        if (!$externalId || !$body) {
-            Log::warning("Skipping webhook: Missing external_id or body", $payload);
+        if (! $externalId || ! $body) {
+            Log::warning('Skipping webhook: Missing external_id or body', $payload);
+
             return;
         }
 
@@ -55,12 +54,13 @@ class ProcessInboundWebhook
         if ($customerResponse->successful()) {
             $customerId = $customerResponse->json()['id'];
         } else {
-             // If duplicate/conflict, try to GET by external_id if possible, or assume external_id is stable.
-             // But existing APIs might not support filtering by external_id on GET /customers.
-             // Workaround: We proceed only if we have ID.
-             // If 409, assume it exists. But we need the ID.
-             Log::error("Failed to create customer", ['status' => $customerResponse->status(), 'body' => $customerResponse->body()]);
-             return;
+            // If duplicate/conflict, try to GET by external_id if possible, or assume external_id is stable.
+            // But existing APIs might not support filtering by external_id on GET /customers.
+            // Workaround: We proceed only if we have ID.
+            // If 409, assume it exists. But we need the ID.
+            Log::error('Failed to create customer', ['status' => $customerResponse->status(), 'body' => $customerResponse->body()]);
+
+            return;
         }
 
         // 3. Conversation Service: Find Open Conversation
@@ -69,16 +69,16 @@ class ProcessInboundWebhook
         // We assign a default bot/agent participant if needed.
         // We'll just pass the customer.
         $convResponse = Http::post('http://127.0.0.1:8002/api/conversations', [
-             'type' => 'direct',
-             'participants' => [$customerId], 
+            'type' => 'direct',
+            'participants' => [$customerId],
         ]);
 
-        if (!$convResponse->successful()) {
-             Log::error("Failed to create/find conversation", ['status' => $convResponse->status()]);
-             return;
+        if (! $convResponse->successful()) {
+            Log::error('Failed to create/find conversation', ['status' => $convResponse->status()]);
+
+            return;
         }
         $conversationId = $convResponse->json()['id'];
-
 
         // 4. Messaging Service: Create Message
         // Uses port 8003
@@ -92,9 +92,9 @@ class ProcessInboundWebhook
         ]);
 
         if ($msgResponse->successful()) {
-            Log::info("Successfully processed inbound webhook and created message", ['message_id' => $msgResponse->json()['id']]);
+            Log::info('Successfully processed inbound webhook and created message', ['message_id' => $msgResponse->json()['id']]);
         } else {
-             Log::error("Failed to create message", ['status' => $msgResponse->status()]);
+            Log::error('Failed to create message', ['status' => $msgResponse->status()]);
         }
     }
 }

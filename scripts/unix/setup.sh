@@ -151,10 +151,30 @@ cd ../..
 echo ""
 echo "────────────────────────────────────────────────────────────────"
 
+# Step 3: Seed Demo Data
+echo "📦 Step 3/4: Seeding demo data..."
+echo "────────────────────────────────────────────────────────────────"
+echo ""
+echo "❓ Do you want to seed the database with demo data? [Y/n]"
+read -r SEED_DATA
+
+if [[ -z "$SEED_DATA" ]] || [[ "$SEED_DATA" =~ ^[Yy]$ ]]; then
+    echo "  Seeding customer service..."
+    cd services/customer-service
+    php artisan db:seed --force
+    cd ../..
+    echo "  ✅ Demo data seeded"
+else
+    echo "  ⏭️  Skipping demo data seeding"
+fi
+
 echo ""
 echo "────────────────────────────────────────────────────────────────"
 
-# Step 3: Ask if user wants to start services
+echo ""
+echo "────────────────────────────────────────────────────────────────"
+
+# Step 4: Ask if user wants to start services
 echo "✅ Setup complete!"
 echo ""
 echo "❓ Do you want to start all services now? [Y/n]"
@@ -162,7 +182,7 @@ read -r START_SERVICES
 
 if [[ -z "$START_SERVICES" ]] || [[ "$START_SERVICES" =~ ^[Yy]$ ]]; then
     echo ""
-    echo "🚀 Step 3/3: Starting all services..."
+    echo "🚀 Step 4/4: Starting all services..."
     echo "────────────────────────────────────────────────────────────────"
     ./scripts/unix/start-all.sh
 else

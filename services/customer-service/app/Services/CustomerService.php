@@ -66,6 +66,14 @@ class CustomerService
     }
 
     /**
+     * Get all customers
+     */
+    public function getAll()
+    {
+        return Customer::all();
+    }
+
+    /**
      * Find customer by ID
      */
     public function findById(string $id): ?Customer

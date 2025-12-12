@@ -59,7 +59,7 @@ class GatewayController extends Controller
                             $participant['external_id'] = $customerData['external_id'] ?? null;
                             $participant['external_type'] = $customerData['external_type'] ?? null;
                         } else {
-                             $participant['name'] = 'Unknown (Service Error)';
+                            $participant['name'] = 'Unknown (Service Error)';
                         }
                     } catch (\Exception $e) {
                         $participant['name'] = 'Error Fetching Name';

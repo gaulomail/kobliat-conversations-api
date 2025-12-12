@@ -16,6 +16,17 @@ class CustomerController extends Controller
     }
 
     /**
+     * GET /api/customers
+     * List all customers
+     */
+    public function index(): JsonResponse
+    {
+        $customers = $this->customerService->getAll();
+
+        return response()->json(['data' => $customers]);
+    }
+
+    /**
      * GET /api/customers/{id}
      * Get customer by ID
      */

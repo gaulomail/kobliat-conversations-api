@@ -2,11 +2,11 @@
 
 namespace App\Providers;
 
-use Illuminate\Support\ServiceProvider;
-use Kobliat\Shared\Events\EventBus;
-use Illuminate\Support\Facades\Event;
 use App\Events\WebhookInboundReceived;
 use App\Listeners\ProcessInboundWebhook;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\ServiceProvider;
+use Kobliat\Shared\Events\EventBus;
 
 class AppServiceProvider extends ServiceProvider
 {

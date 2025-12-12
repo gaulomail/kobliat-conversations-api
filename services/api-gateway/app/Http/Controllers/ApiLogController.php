@@ -33,6 +33,7 @@ class ApiLogController extends Controller
         }
 
         $perPage = (int) $request->input('per_page', 50);
+
         return response()->json($query->paginate($perPage));
     }
 

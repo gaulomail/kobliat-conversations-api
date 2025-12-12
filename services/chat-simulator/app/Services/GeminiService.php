@@ -58,6 +58,7 @@ class GeminiService
     private function getSimulatedResponse(string $persona, string $prompt): string
     {
         $id = rand(12345, 99999);
+
         return match ($persona) {
             'angry_customer' => "I'm very upset! My order #{$id} was supposed to arrive yesterday but it's still not here. This is unacceptable! (Simulated)",
             'curious_shopper' => "Hi! I'm interested in your products. Could you tell me more about the features and pricing? Also, do you offer free shipping? (Simulated)",
@@ -68,6 +69,7 @@ class GeminiService
     private function getPersonaPrompt(string $persona): string
     {
         $id = rand(12345, 99999);
+
         return match ($persona) {
             'angry_customer' => "You are an angry customer complaining about a delayed order #{$id}. You ordered it last week. Be brief.",
             'curious_shopper' => 'You are a curious shopper asking about product details for a random tech gadget. Be polite.',

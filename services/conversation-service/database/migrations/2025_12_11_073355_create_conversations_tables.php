@@ -29,7 +29,7 @@ return new class extends Migration
                 CREATE TYPE conversation_type AS ENUM ('direct', 'multi', 'group');
                 EXCEPTION WHEN duplicate_object THEN null;
             END $$;");
-            
+
             DB::statement("DO $$ BEGIN
                 CREATE TYPE conversation_status AS ENUM ('open', 'closed', 'pending');
                 EXCEPTION WHEN duplicate_object THEN null;

@@ -197,7 +197,16 @@ const Chat: React.FC = () => {
                 body: JSON.stringify({ conversation_id: conversationId, direction: 'inbound', body: messageText, sender_customer_id: botId })
             });
             const message = await response.json();
-            setMessages(prev => [...prev, { ...message, sender_name: 'AI Assistant' }]);
+            console.log('Bot message response:', message);
+
+            // Ensure body is preserved
+            const messageWithBody = {
+                ...message,
+                body: message.body || messageText, // Use original text if body is missing
+                sender_name: 'AI Assistant'
+            };
+
+            setMessages(prev => [...prev, messageWithBody]);
         } catch (error) {
             console.error('Error sending bot message:', error);
         }
@@ -229,10 +238,74 @@ const Chat: React.FC = () => {
             const message = await response.json();
             console.log('Received message response:', message);
 
-            setMessages(prev => [...prev, { ...message, sender_name: 'You' }]);
+            // Ensure body is preserved
+            const messageWithBody = {
+                ...message,
+                body: message.body || userMessage, // Use original message if body is missing
+                sender_name: 'You'
+            };
+
+            console.log('Adding message to state:', messageWithBody);
+            setMessages(prev => [...prev, messageWithBody]);
+
 
             setTimeout(async () => {
-                const aiResponse = userMessage.toLowerCase().includes('hello') ? "Hello! How can I assist you?" : "That's interesting! Tell me more.";
+                // Generate varied AI responses based on message content
+                const lowerMessage = userMessage.toLowerCase();
+                let aiResponse = '';
+
+                if (lowerMessage.includes('hello') || lowerMessage.includes('hi') || lowerMessage.includes('hey')) {
+                    const greetings = [
+                        "Hello! How can I assist you today?",
+                        "Hi there! What can I help you with?",
+                        "Hey! I'm here to help. What do you need?",
+                        "Hello! Great to hear from you. How may I assist?"
+                    ];
+                    aiResponse = greetings[Math.floor(Math.random() * greetings.length)];
+                } else if (lowerMessage.includes('help') || lowerMessage.includes('assist')) {
+                    const helpResponses = [
+                        "I'm here to help! What would you like to know?",
+                        "Of course! I can assist you with various things. What do you need help with?",
+                        "I'd be happy to help! Please tell me more about what you're looking for.",
+                        "Sure thing! How can I make your day easier?"
+                    ];
+                    aiResponse = helpResponses[Math.floor(Math.random() * helpResponses.length)];
+                } else if (lowerMessage.includes('thank') || lowerMessage.includes('thanks')) {
+                    const thanksResponses = [
+                        "You're welcome! Is there anything else I can help with?",
+                        "Happy to help! Let me know if you need anything else.",
+                        "My pleasure! Feel free to ask if you have more questions.",
+                        "Glad I could help! Anything else on your mind?"
+                    ];
+                    aiResponse = thanksResponses[Math.floor(Math.random() * thanksResponses.length)];
+                } else if (lowerMessage.includes('price') || lowerMessage.includes('cost') || lowerMessage.includes('how much')) {
+                    const pricingResponses = [
+                        "Our pricing varies depending on your specific needs. Could you tell me more about what you're looking for?",
+                        "I'd be happy to discuss pricing! What features are you most interested in?",
+                        "Great question! Pricing depends on several factors. What's your use case?",
+                        "Let's talk about pricing! Can you share more details about your requirements?"
+                    ];
+                    aiResponse = pricingResponses[Math.floor(Math.random() * pricingResponses.length)];
+                } else if (lowerMessage.includes('how') || lowerMessage.includes('what') || lowerMessage.includes('?')) {
+                    const questionResponses = [
+                        "That's a great question! Let me help you with that.",
+                        "I can definitely explain that. What specifically would you like to know?",
+                        "Good question! I'm here to provide answers.",
+                        "Let me help clarify that for you. What aspect interests you most?"
+                    ];
+                    aiResponse = questionResponses[Math.floor(Math.random() * questionResponses.length)];
+                } else {
+                    const generalResponses = [
+                        "I understand. Could you tell me more about that?",
+                        "Interesting! What else would you like to share?",
+                        "I see. How can I help you with this?",
+                        "Got it! What would you like to know more about?",
+                        "That makes sense. What's your main concern?",
+                        "I'm listening. What else is on your mind?"
+                    ];
+                    aiResponse = generalResponses[Math.floor(Math.random() * generalResponses.length)];
+                }
+
                 await sendBotMessage(conversation.id, botCustomer!.id, aiResponse);
                 setLoading(false);
             }, 1000);
@@ -374,16 +447,12 @@ const Chat: React.FC = () => {
                                         // Handle error messages
                                         if (message.error) {
                                             console.error('Message error:', message.error);
-                                            return null; // Don't render error messages
-                                        }
-
-                                        // Skip messages without body
-                                        if (!message.body) {
-                                            console.warn('Message missing body:', message);
                                             return null;
                                         }
 
-                                        console.log('Rendering message:', message); // Debug log
+                                        // Show placeholder for messages without body
+                                        const messageBody = message.body || '[Message content unavailable]';
+
                                         return (
                                             <div key={messageKey} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
                                                 <div className={`flex gap-3 max-w-[70%] ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
@@ -392,7 +461,7 @@ const Chat: React.FC = () => {
                                                     </div>
                                                     <div>
                                                         <div className={`rounded-lg px-4 py-2 ${isUser ? 'bg-purple-600 text-white' : 'bg-gray-100 dark:bg-slate-800 text-gray-900 dark:text-white'}`}>
-                                                            <p className="text-sm">{message.body}</p>
+                                                            <p className="text-sm">{messageBody}</p>
                                                         </div>
                                                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 px-1">
                                                             {message.created_at
