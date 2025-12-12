@@ -177,7 +177,7 @@ The easiest way to get started is with our all-in-one setup script:
 **Unix/macOS:**
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone git@github.com:gaulomail/kobliat-conversations-api.git
 cd kobliat-conversations
 
 # Run the master setup script
@@ -198,7 +198,7 @@ This script will:
 **Windows:**
 ```cmd
 REM Clone the repository
-git clone <repository-url>
+git clone git@github.com:gaulomail/kobliat-conversations-api.git
 cd kobliat-conversations
 
 REM Run setup script
