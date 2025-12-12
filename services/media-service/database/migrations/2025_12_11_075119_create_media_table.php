@@ -19,7 +19,7 @@ return new class extends Migration
             $table->bigInteger('size')->nullable();
             $table->string('storage_key'); // Path in S3
             $table->text('preview_url')->nullable();
-            $table->jsonb('metadata')->default('{}');
+            $table->jsonb('metadata')->nullable();
             $table->boolean('is_scanned')->default(false);
             $table->boolean('is_infected')->default(false);
             $table->timestampsTz();

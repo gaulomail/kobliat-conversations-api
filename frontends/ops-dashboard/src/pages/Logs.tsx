@@ -1,31 +1,95 @@
+
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { getLogs, type ApiLog } from '../services/api';
-import { RefreshCw, Search, Eye, X, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+    RefreshCw, Search, Eye, X, Filter, ChevronLeft, ChevronRight,
+    Calendar, Clock, CheckCircle, AlertTriangle, AlertCircle, AlertOctagon,
+    Code, Copy
+} from 'lucide-react';
 import DashboardLayout from '../layouts/DashboardLayout';
 import Paper from '../components/Paper';
 import Button from '../components/Button';
-import Input from '../components/Input';
+
+const JsonDisplay = ({ data, title }: { data: unknown; title: string }) => {
+    const parsedData = useMemo(() => {
+        if (typeof data === 'string') {
+            try {
+                return JSON.parse(data);
+            } catch {
+                return data;
+            }
+        }
+        return data;
+    }, [data]);
+
+    const isEmp = !parsedData || (typeof parsedData === 'object' && Object.keys(parsedData as object).length === 0);
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = () => {
+        navigator.clipboard.writeText(JSON.stringify(parsedData, null, 2));
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    if (isEmp) return null;
+
+    return (
+        <div className="space-y-2">
+            <div className="flex items-center justify-between">
+                <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">{title}</h4>
+                <button
+                    onClick={handleCopy}
+                    className="flex items-center gap-1 text-xs text-gray-500 hover:text-purple-600 transition-colors"
+                >
+                    <Copy size={12} />
+                    {copied ? 'Copied!' : 'Copy JSON'}
+                </button>
+            </div>
+            <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden shadow-inner">
+                <div className="max-h-60 overflow-y-auto p-4 custom-scrollbar">
+                    <pre className="text-xs font-mono text-emerald-400 break-all whitespace-pre-wrap">
+                        {JSON.stringify(parsedData, null, 2)}
+                    </pre>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// Quick Date Filters
+const DATE_PRESETS = [
+    { label: 'Today', days: 0 },
+    { label: 'Last 24h', hours: 24 },
+    { label: 'Last 7 Days', days: 7 },
+];
 
 function Logs() {
+    // State
     const [logs, setLogs] = useState<ApiLog[]>([]);
     const [loading, setLoading] = useState(false);
     const [selectedLog, setSelectedLog] = useState<ApiLog | null>(null);
+    const [autoRefresh, setAutoRefresh] = useState(false);
+
+    // Filters
+    const [searchQuery, setSearchQuery] = useState(''); // Unified search (path/method/status)
     const [filterMethod, setFilterMethod] = useState('');
-    const [filterPath, setFilterPath] = useState('');
-    const [filterStatus, setFilterStatus] = useState('');
+    const [filterStatusType, setFilterStatusType] = useState<'all' | 'success' | 'error'>('all');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(25);
+    const [itemsPerPage, setItemsPerPage] = useState(20);
+
+    // Modal Tabs
+    const [modalTab, setModalTab] = useState<'overview' | 'payloads' | 'headers'>('overview');
 
     const fetchLogs = useCallback(async () => {
         setLoading(true);
         try {
             const data = await getLogs({
                 method: filterMethod || undefined,
-                path: filterPath || undefined,
+                path: searchQuery || undefined, // Using search query as path filter for now
                 startDate: startDate || undefined,
                 endDate: endDate || undefined
             });
@@ -35,22 +99,31 @@ function Logs() {
         } finally {
             setLoading(false);
         }
-    }, [filterMethod, filterPath, startDate, endDate]);
+    }, [filterMethod, searchQuery, startDate, endDate]);
 
+    // Initial Load & Auto Refresh
     useEffect(() => {
         fetchLogs();
-    }, [fetchLogs]);
+        if (autoRefresh) {
+            const interval = setInterval(fetchLogs, 5000);
+            return () => clearInterval(interval);
+        }
+    }, [fetchLogs, autoRefresh]);
 
-    // Filter and paginate
+    // Client-side Filtering (for status type mostly, since API supports exact status)
     const filteredLogs = useMemo(() => {
         let filtered = [...logs];
-        if (filterStatus) {
-            const statusCode = parseInt(filterStatus);
-            filtered = filtered.filter(log => log.status_code === statusCode);
-        }
-        return filtered;
-    }, [logs, filterStatus]);
 
+        if (filterStatusType === 'success') {
+            filtered = filtered.filter(l => l.status_code >= 200 && l.status_code < 300);
+        } else if (filterStatusType === 'error') {
+            filtered = filtered.filter(l => l.status_code >= 400);
+        }
+
+        return filtered;
+    }, [logs, filterStatusType]);
+
+    // Pagination Logic
     const paginatedLogs = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
         return filteredLogs.slice(startIndex, startIndex + itemsPerPage);
@@ -58,182 +131,268 @@ function Logs() {
 
     const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
 
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [filterMethod, filterPath, filterStatus, startDate, endDate]);
+    // Filter Handlers
+    const applyDatePreset = (preset: typeof DATE_PRESETS[0]) => {
+        const end = new Date();
+        const start = new Date();
+
+        if (preset.hours) {
+            start.setHours(end.getHours() - preset.hours);
+        } else {
+            start.setDate(end.getDate() - (preset as any).days);
+            start.setHours(0, 0, 0, 0); // Start of day
+        }
+
+        setEndDate(end.toISOString().split('T')[0]);
+        setStartDate(start.toISOString().split('T')[0]);
+    };
 
     const clearFilters = () => {
+        setSearchQuery('');
         setFilterMethod('');
-        setFilterPath('');
-        setFilterStatus('');
+        setFilterStatusType('all');
         setStartDate('');
         setEndDate('');
+        setCurrentPage(1);
     };
 
-    const getMethodColor = (method: string) => {
-        switch (method) {
-            case 'GET': return 'text-blue-600 bg-blue-50 dark:bg-blue-900/20';
-            case 'POST': return 'text-green-600 bg-green-50 dark:bg-green-900/20';
-            case 'PUT': return 'text-amber-600 bg-amber-50 dark:bg-amber-900/20';
-            case 'DELETE': return 'text-red-600 bg-red-50 dark:bg-red-900/20';
-            default: return 'text-gray-600 bg-gray-50 dark:bg-gray-900/20';
+    // Styling Helpers
+    const getMethodBadge = (method: string) => {
+        const styles: Record<string, string> = {
+            GET: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
+            POST: 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20',
+            PUT: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
+            DELETE: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20',
+        };
+        const defaultStyle = 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20';
+
+        return (
+            <span className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold border ${styles[method] || defaultStyle} `}>
+                {method}
+            </span>
+        );
+    };
+
+    const getStatusBadge = (status: number) => {
+        let color = 'text-gray-600 bg-gray-100 dark:bg-gray-800';
+        let icon = null;
+
+        if (status >= 200 && status < 300) {
+            color = 'text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/30';
+            icon = <CheckCircle size={12} />;
+        } else if (status >= 400 && status < 500) {
+            color = 'text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-950/30';
+            icon = <AlertTriangle size={12} />;
+        } else if (status >= 500) {
+            color = 'text-red-600 bg-red-50 dark:text-red-400 dark:bg-red-950/30';
+            icon = <AlertOctagon size={12} />;
         }
-    };
 
-    const getStatusColor = (status: number) => {
-        if (status >= 200 && status < 300) return 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20';
-        if (status >= 400 && status < 500) return 'text-amber-600 bg-amber-50 dark:bg-amber-900/20';
-        if (status >= 500) return 'text-red-600 bg-red-50 dark:bg-red-900/20';
-        return 'text-gray-600 bg-gray-50 dark:bg-gray-900/20';
+        return (
+            <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${color} `}>
+                {icon}
+                {status}
+            </span>
+        );
     };
 
     return (
         <DashboardLayout>
-            {/* Hero Banner */}
-            <div className="mb-8 bg-purple-600 dark:bg-purple-700 rounded-2xl p-8 text-white shadow-xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl -mr-48 -mt-48"></div>
-                <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -ml-32 -mb-32"></div>
-                <div className="relative z-10">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
-                                <Filter size={28} className="text-white" />
-                            </div>
-                            <div>
-                                <h1 className="text-3xl font-bold mb-1">API Request Logs</h1>
-                                <p className="text-white/90 text-sm">Detailed logging and monitoring of all API requests</p>
-                            </div>
+            {/* Header */}
+            <div className="relative mb-8 overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 p-8 text-white shadow-2xl">
+                <div className="absolute top-0 right-0 -mt-20 -mr-20 h-80 w-80 rounded-full bg-purple-500/20 blur-3xl"></div>
+                <div className="absolute bottom-0 left-0 -mb-20 -ml-20 h-64 w-64 rounded-full bg-indigo-500/20 blur-3xl"></div>
+
+                <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div className="flex items-center gap-5">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-md shadow-inner border border-white/10">
+                            <Code size={32} className="text-purple-200" />
                         </div>
-                        <div className="flex gap-2">
-                            <Button
-                                variant="outlined"
-                                onClick={clearFilters}
-                                className="!bg-white/20 !border-white/30 hover:!bg-white/30 !text-white backdrop-blur-sm"
-                            >
-                                <X size={16} />
-                                Clear
-                            </Button>
-                            <Button
-                                onClick={fetchLogs}
-                                disabled={loading}
-                                className="!bg-white/20 !border-white/30 hover:!bg-white/30 !text-white backdrop-blur-sm"
-                            >
-                                <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-                                Refresh
-                            </Button>
+                        <div>
+                            <h1 className="text-3xl font-bold tracking-tight text-white mb-1">API Logs</h1>
+                            <p className="text-purple-200 flex items-center gap-2">
+                                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                                {loading ? 'Syncing...' : 'Live Monitoring'}
+                            </p>
                         </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <Button
+                            variant="outlined"
+                            onClick={clearFilters}
+                            className="bg-white/5 border-white/20 text-white hover:bg-white/10"
+                        >
+                            Reset
+                        </Button>
+                        <Button
+                            onClick={() => setAutoRefresh(!autoRefresh)}
+                            className={`${autoRefresh ? 'bg-green-500 hover:bg-green-600 text-white border-transparent' : 'bg-white/10 text-white hover:bg-white/20 border-white/20'} border shadow-lg backdrop-blur-sm transition-all`}
+                            startIcon={<RefreshCw size={16} className={autoRefresh ? 'animate-spin' : ''} />}
+                        >
+                            {autoRefresh ? 'Auto-Refresh ON' : 'Refresh Now'}
+                        </Button>
                     </div>
                 </div>
             </div>
 
-            <Paper className="overflow-hidden">
-                {/* Filters */}
-                <div className="p-6 border-b border-gray-200 dark:border-slate-800">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
-                        <Input
-                            placeholder="Filter by Path..."
-                            value={filterPath}
-                            onChange={(e) => setFilterPath(e.target.value)}
-                            startIcon={<Search size={16} />}
-                            fullWidth
-                        />
-                        <select
-                            value={filterMethod}
-                            onChange={(e) => setFilterMethod(e.target.value)}
-                            className="px-3 py-2 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all"
-                        >
-                            <option value="">All Methods</option>
-                            <option value="GET">GET</option>
-                            <option value="POST">POST</option>
-                            <option value="PUT">PUT</option>
-                            <option value="DELETE">DELETE</option>
-                            <option value="PATCH">PATCH</option>
-                        </select>
-                        <select
-                            value={filterStatus}
-                            onChange={(e) => setFilterStatus(e.target.value)}
-                            className="px-3 py-2 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all"
-                        >
-                            <option value="">All Status</option>
-                            <option value="200">200 OK</option>
-                            <option value="201">201 Created</option>
-                            <option value="400">400 Bad Request</option>
-                            <option value="401">401 Unauthorized</option>
-                            <option value="404">404 Not Found</option>
-                            <option value="500">500 Server Error</option>
-                        </select>
-                        <Input
-                            type="date"
-                            value={startDate}
-                            onChange={(e) => setStartDate(e.target.value)}
-                            fullWidth
-                        />
-                        <Input
-                            type="date"
-                            value={endDate}
-                            onChange={(e) => setEndDate(e.target.value)}
-                            fullWidth
-                        />
+            <Paper className="border-0 shadow-xl overflow-hidden bg-white dark:bg-slate-900/50 backdrop-blur-sm">
+
+                {/* Advanced Filter Bar */}
+                <div className="p-5 border-b border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-950/30">
+                    <div className="flex flex-col xl:flex-row gap-4 justify-between">
+
+                        {/* Search & Method */}
+                        <div className="flex flex-1 gap-4">
+                            <div className="relative flex-1 max-w-md">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                                <input
+                                    type="text"
+                                    placeholder="Search by endpoint path..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all text-sm"
+                                />
+                            </div>
+
+                            <div className="flex items-center gap-1 bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700 p-1">
+                                {['GET', 'POST', 'PUT', 'DELETE'].map(m => (
+                                    <button
+                                        key={m}
+                                        onClick={() => setFilterMethod(filterMethod === m ? '' : m)}
+                                        className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${filterMethod === m
+                                            ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 shadow-sm'
+                                            : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-800'
+                                            } `}
+                                    >
+                                        {m}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Status & Date */}
+                        <div className="flex flex-wrap items-center gap-3">
+                            <div className="flex items-center gap-1 bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700 p-1">
+                                {[
+                                    { id: 'all', label: 'All', icon: null },
+                                    { id: 'success', label: 'Success', icon: <CheckCircle size={12} /> },
+                                    { id: 'error', label: 'Errors', icon: <AlertTriangle size={12} /> }
+                                ].map(s => (
+                                    <button
+                                        key={s.id}
+                                        onClick={() => setFilterStatusType(s.id as any)} // eslint-disable-line
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${filterStatusType === s.id
+                                            ? 'bg-gray-100 text-gray-900 dark:bg-slate-800 dark:text-white shadow-sm'
+                                            : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-800'
+                                            } `}
+                                    >
+                                        {s.icon}
+                                        {s.label}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div className="h-8 w-px bg-gray-200 dark:bg-slate-700 mx-1 hidden xl:block"></div>
+
+                            <div className="flex bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700 p-1 mr-2 hidden 2xl:flex">
+                                {DATE_PRESETS.map((preset, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={() => applyDatePreset(preset)}
+                                        className="px-2 py-1.5 text-[10px] font-medium uppercase tracking-wider text-gray-500 hover:text-purple-600 dark:hover:text-purple-400 border-r last:border-0 border-gray-100 dark:border-slate-800"
+                                    >
+                                        {preset.label}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="date"
+                                    value={startDate}
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                    className="px-3 py-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-purple-500/20 outline-none"
+                                />
+                                <span className="text-gray-400">-</span>
+                                <input
+                                    type="date"
+                                    value={endDate}
+                                    onChange={(e) => setEndDate(e.target.value)}
+                                    className="px-3 py-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-purple-500/20 outline-none"
+                                />
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                {/* Table */}
-                <div className="overflow-x-auto">
+                {/* Table View */}
+                <div className="overflow-x-auto min-h-[400px]">
                     <table className="w-full">
-                        <thead className="bg-gray-50 dark:bg-slate-900/50 border-y border-gray-200 dark:border-slate-800">
+                        <thead className="bg-gray-50/50 dark:bg-slate-950/30 border-b border-gray-100 dark:border-slate-800">
                             <tr>
-                                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Method</th>
-                                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Path</th>
-                                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Duration</th>
-                                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">IP Address</th>
-                                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Time</th>
-                                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                                {['Method', 'Status', 'Endpoints', 'Client IP', 'Duration', 'Timestamp', 'Context'].map(h => (
+                                    <th key={h} className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        {h}
+                                    </th>
+                                ))}
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-200 dark:divide-slate-800">
+                        <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
                             {loading ? (
                                 <tr>
-                                    <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
-                                        <RefreshCw className="animate-spin mx-auto mb-2" size={24} />
-                                        Loading logs...
+                                    <td colSpan={7} className="px-6 py-24 text-center">
+                                        <div className="flex flex-col items-center justify-center">
+                                            <RefreshCw className="animate-spin text-purple-500 mb-4" size={32} />
+                                            <p className="text-gray-500 font-medium">Loading logs...</p>
+                                        </div>
                                     </td>
                                 </tr>
                             ) : paginatedLogs.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="px-4 py-12 text-center text-gray-500">No logs found</td>
+                                    <td colSpan={7} className="px-6 py-24 text-center">
+                                        <div className="flex flex-col items-center justify-center text-gray-400">
+                                            <Filter size={48} className="mb-4 opacity-50" />
+                                            <p className="text-lg font-medium text-gray-500">No logs found</p>
+                                            <p className="text-sm">Try adjusting your filters or date range</p>
+                                        </div>
+                                    </td>
                                 </tr>
                             ) : (
                                 paginatedLogs.map((log) => (
-                                    <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-slate-900/30 transition-colors">
-                                        <td className="px-4 py-3">
-                                            <span className={`px-2 py-1 rounded text-xs font-bold ${getMethodColor(log.method)}`}>
-                                                {log.method}
+                                    <tr
+                                        key={log.id}
+                                        className="group hover:bg-purple-50/50 dark:hover:bg-purple-900/10 transition-all cursor-pointer"
+                                        onClick={() => setSelectedLog(log)}
+                                    >
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            {getMethodBadge(log.method)}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            {getStatusBadge(log.status_code)}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="font-mono text-sm text-gray-700 dark:text-gray-300 truncate max-w-xs" title={log.path}>
+                                                {log.path}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            {log.ip_address || <span className="text-gray-400 italic">Unknown</span>}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <span className={`text-xs font-mono font-medium ${log.duration_ms > 1000 ? 'text-amber-500' : 'text-gray-500'} `}>
+                                                {log.duration_ms}ms
                                             </span>
                                         </td>
-                                        <td className="px-4 py-3 font-mono text-sm text-gray-700 dark:text-gray-300 max-w-md truncate">
-                                            {log.path}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <span className={`px-2 py-1 rounded text-xs font-bold ${getStatusColor(log.status_code)}`}>
-                                                {log.status_code}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 font-mono">
-                                            {log.duration_ms.toFixed(2)}ms
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 font-mono">
-                                            {log.ip_address || 'N/A'}
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                             {new Date(log.created_at).toLocaleString()}
                                         </td>
-                                        <td className="px-4 py-3">
+                                        <td className="px-6 py-4 whitespace-nowrap">
                                             <button
-                                                onClick={() => setSelectedLog(log)}
-                                                className="text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 transition-colors"
+                                                className="p-2 rounded-full hover:bg-purple-100 dark:hover:bg-purple-900/30 text-purple-600 dark:text-purple-400 transition-colors"
+                                                title="View Details"
                                             >
-                                                <Eye size={18} />
+                                                <Eye size={16} />
                                             </button>
                                         </td>
                                     </tr>
@@ -243,91 +402,144 @@ function Logs() {
                     </table>
                 </div>
 
-                {/* Pagination */}
-                {totalPages > 1 && (
-                    <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 dark:border-slate-800">
-                        <div className="text-sm text-gray-600 dark:text-gray-400">
-                            Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredLogs.length)} of {filteredLogs.length} results
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <select
-                                value={itemsPerPage}
-                                onChange={(e) => {
-                                    setItemsPerPage(Number(e.target.value));
-                                    setCurrentPage(1);
-                                }}
-                                className="px-3 py-1.5 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg text-sm"
-                            >
-                                <option value="10">10 per page</option>
-                                <option value="25">25 per page</option>
-                                <option value="50">50 per page</option>
-                                <option value="100">100 per page</option>
-                            </select>
-                            <Button
-                                variant="outlined"
-                                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                                disabled={currentPage === 1}
-                                className="!px-3 !py-1.5"
-                            >
-                                <ChevronLeft size={16} />
-                            </Button>
-                            <span className="text-sm text-gray-600 dark:text-gray-400 px-2">
-                                Page {currentPage} of {totalPages}
-                            </span>
-                            <Button
-                                variant="outlined"
-                                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                                disabled={currentPage === totalPages}
-                                className="!px-3 !py-1.5"
-                            >
-                                <ChevronRight size={16} />
-                            </Button>
-                        </div>
+                {/* Footer Pagination */}
+                <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 dark:border-slate-800 bg-gray-50/30 dark:bg-slate-950/30">
+                    <div className="flex items-center gap-4">
+                        <span className="text-sm text-gray-500">
+                            Page {currentPage} of {Math.max(1, totalPages)}
+                        </span>
+                        <select
+                            value={itemsPerPage}
+                            onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                            className="text-xs bg-transparent border-none text-gray-500 focus:ring-0 cursor-pointer"
+                        >
+                            {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n} / page</option>)}
+                        </select>
                     </div>
-                )}
+                    <div className="flex gap-2">
+                        <Button
+                            variant="outlined"
+                            size="sm"
+                            disabled={currentPage === 1}
+                            onClick={() => setCurrentPage(p => p - 1)}
+                        >
+                            <ChevronLeft size={16} />
+                        </Button>
+                        <Button
+                            variant="outlined"
+                            size="sm"
+                            disabled={currentPage >= totalPages}
+                            onClick={() => setCurrentPage(p => p + 1)}
+                        >
+                            <ChevronRight size={16} />
+                        </Button>
+                    </div>
+                </div>
             </Paper>
 
-            {/* Log Detail Modal */}
+            {/* Enhanced Detail Modal */}
             {selectedLog && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setSelectedLog(null)}>
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-                        <div className="sticky top-0 bg-gradient-to-r from-purple-500 to-pink-500 px-6 py-4 flex items-center justify-between z-10">
-                            <h3 className="text-xl font-bold text-white">Request Details</h3>
-                            <button
-                                onClick={() => setSelectedLog(null)}
-                                className="text-white/80 hover:text-white transition-colors"
-                            >
-                                <X size={24} />
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedLog(null)}>
+                    <div
+                        className="w-full max-w-4xl max-h-[85vh] overflow-hidden rounded-2xl bg-white dark:bg-slate-900 shadow-2xl flex flex-col"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        {/* Modal Header */}
+                        <div className="px-6 py-4 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between bg-gray-50/50 dark:bg-slate-950/50">
+                            <div className="flex items-center gap-4">
+                                {getStatusBadge(selectedLog.status_code)}
+                                <h3 className="text-lg font-bold text-gray-900 dark:text-white font-mono truncate max-w-md">
+                                    {selectedLog.method} {selectedLog.path}
+                                </h3>
+                            </div>
+                            <button onClick={() => setSelectedLog(null)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                                <X size={20} />
                             </button>
                         </div>
-                        <div className="p-6 space-y-6">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="p-4 bg-gray-50 dark:bg-slate-950/50 rounded-xl">
-                                    <span className="text-xs font-bold text-gray-400 uppercase">Method</span>
-                                    <p className="mt-1 font-mono text-sm text-gray-900 dark:text-gray-200">{selectedLog.method}</p>
+
+                        {/* Modal Tabs */}
+                        <div className="flex border-b border-gray-100 dark:border-slate-800 px-6">
+                            {['overview', 'payloads', 'headers'].map(tab => (
+                                <button
+                                    key={tab}
+                                    onClick={() => setModalTab(tab as any)} // eslint-disable-line
+                                    className={`px-4 py-3 text-sm font-medium capitalize border-b-2 transition-colors ${modalTab === tab
+                                        ? 'border-purple-500 text-purple-600 dark:text-purple-400'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                                        } `}
+                                >
+                                    {tab}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Modal Content */}
+                        <div className="flex-1 overflow-y-auto p-6 bg-white dark:bg-slate-900">
+                            {modalTab === 'overview' && (
+                                <div className="grid grid-cols-2 gap-6">
+                                    <div className="space-y-4">
+                                        <div>
+                                            <h4 className="text-xs font-bold text-gray-400 uppercase mb-1">Details</h4>
+                                            <div className="p-4 bg-gray-50 dark:bg-slate-950/50 rounded-xl space-y-3 border border-gray-100 dark:border-slate-800">
+                                                <div className="flex justify-between">
+                                                    <span className="text-sm text-gray-500">Method</span>
+                                                    <span className="text-sm font-medium dark:text-gray-200">{selectedLog.method}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-sm text-gray-500">Duration</span>
+                                                    <span className="text-sm font-medium dark:text-gray-200">{selectedLog.duration_ms}ms</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-sm text-gray-500">IP Address</span>
+                                                    <span className="text-sm font-medium dark:text-gray-200">{selectedLog.ip_address}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-sm text-gray-500">Log ID</span>
+                                                    <span className="text-xs font-mono text-gray-400">{selectedLog.id}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h4 className="text-xs font-bold text-gray-400 uppercase mb-1">Timing</h4>
+                                        <div className="flex flex-col gap-2 p-4 bg-gray-50 dark:bg-slate-950/50 rounded-xl border border-gray-100 dark:border-slate-800">
+                                            <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
+                                                <Calendar size={16} className="text-purple-400" />
+                                                {new Date(selectedLog.created_at).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                                            </div>
+                                            <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
+                                                <Clock size={16} className="text-blue-400" />
+                                                {new Date(selectedLog.created_at).toLocaleTimeString()}
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="p-4 bg-gray-50 dark:bg-slate-950/50 rounded-xl">
-                                    <span className="text-xs font-bold text-gray-400 uppercase">Status</span>
-                                    <p className="mt-1 font-mono text-sm text-gray-900 dark:text-gray-200">{selectedLog.status_code}</p>
+                            )}
+
+                            {modalTab === 'payloads' && (
+                                <div className="space-y-6">
+                                    <JsonDisplay title="Request Body" data={selectedLog.request_payload} />
+                                    <JsonDisplay title="Response Body" data={selectedLog.response_payload} />
+                                    {(!selectedLog.request_payload && !selectedLog.response_payload) && (
+                                        <div className="text-center py-12 text-gray-400">
+                                            <AlertCircle size={40} className="mx-auto mb-2 opacity-50" />
+                                            <p>No payload data available</p>
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="p-4 bg-gray-50 dark:bg-slate-950/50 rounded-xl">
-                                    <span className="text-xs font-bold text-gray-400 uppercase">Duration</span>
-                                    <p className="mt-1 font-mono text-sm text-gray-900 dark:text-gray-200">{selectedLog.duration_ms}ms</p>
+                            )}
+
+                            {modalTab === 'headers' && (
+                                <div className="space-y-6">
+                                    <JsonDisplay title="Headers" data={selectedLog.headers} />
+                                    {!selectedLog.headers && (
+                                        <div className="text-center py-12 text-gray-400">
+                                            <AlertCircle size={40} className="mx-auto mb-2 opacity-50" />
+                                            <p>No header data available</p>
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="p-4 bg-gray-50 dark:bg-slate-950/50 rounded-xl">
-                                    <span className="text-xs font-bold text-gray-400 uppercase">IP Address</span>
-                                    <p className="mt-1 font-mono text-sm text-gray-900 dark:text-gray-200">{selectedLog.ip_address || 'N/A'}</p>
-                                </div>
-                            </div>
-                            <div>
-                                <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-3">Request Path</h4>
-                                <div className="p-4 bg-gray-900 rounded-xl overflow-x-auto">
-                                    <code className="text-sm text-emerald-400 font-mono">{selectedLog.path}</code>
-                                </div>
-                            </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">
-                                <strong>Timestamp:</strong> {new Date(selectedLog.created_at).toLocaleString()}
-                            </div>
+                            )}
                         </div>
                     </div>
                 </div>

@@ -45,6 +45,7 @@ interface LogFilters {
     path?: string;
     status?: string;
     page?: number;
+    perPage?: number;
     startDate?: string;
     endDate?: string;
 }
@@ -56,6 +57,7 @@ export const getLogs = async (filters: LogFilters = {}): Promise<PaginatedRespon
     if (filters.path) params.path = filters.path;
     if (filters.status) params.status = filters.status;
     if (filters.page) params.page = filters.page;
+    if (filters.perPage) params.per_page = filters.perPage;
     if (filters.startDate) params.start_date = filters.startDate;
     if (filters.endDate) params.end_date = filters.endDate;
 

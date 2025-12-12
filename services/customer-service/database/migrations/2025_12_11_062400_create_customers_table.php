@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('external_id');
             $table->string('external_type')->default('whatsapp');
             $table->string('name')->nullable();
-            $table->json('metadata')->default('{}');
+            $table->json('metadata')->nullable();
             $table->timestampsTz();
 
             // Unique constraint on external_type and external_id

@@ -50,7 +50,7 @@ return new class extends Migration
 
             $table->string('group_name')->nullable();
             $table->string('group_avatar')->nullable();
-            $table->jsonb('group_metadata')->default('{}');
+            $table->jsonb('group_metadata')->nullable();
             $table->timestampTz('last_message_at')->nullable();
             $table->timestampsTz();
         });
@@ -61,7 +61,7 @@ return new class extends Migration
             $table->uuid('customer_id');
             $table->string('role')->default('member'); // owner, admin, member
             $table->timestampTz('joined_at')->useCurrent();
-            $table->jsonb('metadata')->default('{}');
+            $table->jsonb('metadata')->nullable();
 
             $table->foreign('conversation_id')->references('id')->on('conversations')->onDelete('cascade');
             $table->unique(['conversation_id', 'customer_id']);

@@ -22,6 +22,9 @@ interface Conversation {
     id: string;
     type: string;
     participants: Customer[];
+    preview?: string;
+    participantName?: string;
+    last_message_at?: string;
 }
 
 const Chat: React.FC = () => {
@@ -55,7 +58,39 @@ const Chat: React.FC = () => {
                 headers: { 'X-API-Key': API_KEY }
             });
             const data = await response.json();
-            setConversations(Array.isArray(data) ? data : (data.data || []));
+            const list: Conversation[] = Array.isArray(data) ? data : (data.data || []);
+
+            // Initial render
+            setConversations(list);
+
+            // Hydrate with details for preview (async)
+            const enriched = await Promise.all(list.map(async (conv) => {
+                try {
+                    const detailRes = await fetch(`${BASE_URL}/conversations/${conv.id}/details`, {
+                        headers: { 'X-API-Key': API_KEY }
+                    });
+                    const detail = await detailRes.json();
+
+                    const msgs = Array.isArray(detail.messages) ? detail.messages : (detail.messages?.data || []);
+                    const lastMsg = msgs.length > 0 ? msgs[msgs.length - 1] : null;
+
+                    const participants = detail.participants || [];
+                    // Prefer showing name of the non-assistant participant
+                    const customer = participants.find((p: any) => p.external_type !== 'assistant') || participants[0];
+                    const name = customer?.name || 'Unknown User';
+
+                    return {
+                        ...conv,
+                        preview: lastMsg ? lastMsg.body : 'No messages',
+                        participantName: name,
+                        last_message_at: lastMsg ? lastMsg.created_at : conv.last_message_at
+                    };
+                } catch (e) {
+                    return conv;
+                }
+            }));
+
+            setConversations(enriched);
         } catch (error) {
             console.error('Failed to load conversations:', error);
             setConversations([]);
@@ -251,11 +286,22 @@ const Chat: React.FC = () => {
                                 conversations.map((conv) => (
                                     <button key={conv.id} onClick={() => loadConversation(conv.id)}
                                         className={`w-full p-4 text-left border-b border-gray-200 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors ${conversation?.id === conv.id ? 'bg-violet-50 dark:bg-violet-900/20' : ''}`}>
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <Bot size={14} className="text-violet-600" />
-                                            <span className="text-sm font-medium text-gray-900 dark:text-white truncate">Conversation</span>
+                                        <div className="flex justify-between items-start mb-1">
+                                            <div className="flex items-center gap-2 overflow-hidden">
+                                                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${conv.preview ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                                                <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                                    {conv.participantName || 'Conversation'}
+                                                </span>
+                                            </div>
+                                            {conv.last_message_at && (
+                                                <span className="text-[10px] text-gray-400 whitespace-nowrap ml-2">
+                                                    {new Date(conv.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            )}
                                         </div>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">ID: {conv.id.substring(0, 8)}...</p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate pl-4">
+                                            {conv.preview || `ID: ${conv.id.substring(0, 8)}...`}
+                                        </p>
                                     </button>
                                 ))
                             )}

@@ -19,9 +19,11 @@ class SimulatorController extends Controller
     {
         $validated = $request->validate([
             'scenario' => 'required|string|in:angry_customer,curious_shopper',
+            'message' => 'nullable|string',
         ]);
 
-        $result = $this->engine->runScenario($validated['scenario'], '');
+        $message = $request->input('message'); // Optional incoming message Context
+        $result = $this->engine->runScenario($validated['scenario'], $message);
 
         return response()->json($result);
     }

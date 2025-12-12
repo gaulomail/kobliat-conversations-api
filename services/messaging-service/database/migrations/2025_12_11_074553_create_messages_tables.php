@@ -35,7 +35,7 @@ return new class extends Migration
             $table->text('body')->nullable();
             $table->string('content_type')->default('text');
             $table->uuid('media_id')->nullable();
-            $table->jsonb('metadata')->default('{}');
+            $table->jsonb('metadata')->nullable();
             $table->timestampTz('sent_at')->nullable();
             $table->boolean('is_processed')->default(false);
             $table->timestampsTz();
@@ -58,7 +58,7 @@ return new class extends Migration
             $table->text('body')->nullable();
             $table->text('previous_body')->nullable();
             $table->timestampTz('edited_at')->useCurrent();
-            $table->jsonb('metadata')->default('{}');
+            $table->jsonb('metadata')->nullable();
         });
     }
 

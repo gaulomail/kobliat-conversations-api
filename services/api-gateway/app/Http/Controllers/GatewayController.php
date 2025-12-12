@@ -47,6 +47,27 @@ class GatewayController extends Controller
         }
         $conversation = $convResponse->json();
 
+        // 1.5 Hydrate Participants
+        if (isset($conversation['participants']) && is_array($conversation['participants'])) {
+            foreach ($conversation['participants'] as &$participant) {
+                if (isset($participant['customer_id'])) {
+                    try {
+                        $custResponse = $this->proxy->forward('customer', 'get', "/api/customers/{$participant['customer_id']}");
+                        if ($custResponse->successful()) {
+                            $customerData = $custResponse->json();
+                            $participant['name'] = $customerData['name'] ?? 'Unknown';
+                            $participant['external_id'] = $customerData['external_id'] ?? null;
+                            $participant['external_type'] = $customerData['external_type'] ?? null;
+                        } else {
+                             $participant['name'] = 'Unknown (Service Error)';
+                        }
+                    } catch (\Exception $e) {
+                        $participant['name'] = 'Error Fetching Name';
+                    }
+                }
+            }
+        }
+
         // 2. Get Messages
         $msgResponse = $this->proxy->forward('messaging', 'get', "/api/conversations/{$id}/messages");
         $messages = $msgResponse->successful() ? $msgResponse->json() : [];

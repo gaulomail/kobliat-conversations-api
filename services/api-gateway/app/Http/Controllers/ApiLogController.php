@@ -24,7 +24,16 @@ class ApiLogController extends Controller
             $query->where('path', 'like', '%'.$request->query('path').'%');
         }
 
-        return response()->json($query->paginate(50));
+        if ($request->has('start_date')) {
+            $query->whereDate('created_at', '>=', $request->query('start_date'));
+        }
+
+        if ($request->has('end_date')) {
+            $query->whereDate('created_at', '<=', $request->query('end_date'));
+        }
+
+        $perPage = (int) $request->input('per_page', 50);
+        return response()->json($query->paginate($perPage));
     }
 
     public function show(string $id): JsonResponse

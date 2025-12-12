@@ -17,6 +17,7 @@ function Dashboard() {
     const [filterStatus, setFilterStatus] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+    const [timeRange, setTimeRange] = useState<'1m' | '1h' | '2h' | '12h' | '1D' | '2D' | '3D'>('3D');
 
     // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
@@ -29,7 +30,8 @@ function Dashboard() {
                 method: filterMethod || undefined,
                 path: filterPath || undefined,
                 startDate: startDate || undefined,
-                endDate: endDate || undefined
+                endDate: endDate || undefined,
+                perPage: 2000 // Request plenty of logs for the graph
             });
             setLogs(data.data);
         } catch (error) {
@@ -82,16 +84,84 @@ function Dashboard() {
 
     // Prepare chart data
     const chartData = useMemo(() => {
-        const grouped = logs.reduce((acc, log) => {
-            const time = new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            acc[time] = (acc[time] || 0) + 1;
-            return acc;
-        }, {} as Record<string, number>);
+        if (logs.length === 0) {
+            return Array.from({ length: 10 }, (_, i) => ({
+                time: `Day ${i + 1}`,
+                count: 0
+            }));
+        }
 
+        const cutoff = new Date();
+        let intervalMs = 1000 * 60 * 60; // Default 1 hour
+
+        // Configure Logic based on Range
+        switch (timeRange) {
+            case '1m':
+                cutoff.setSeconds(cutoff.getSeconds() - 60);
+                intervalMs = 1000 * 5; // 5 second intervals
+                break;
+            case '1h':
+                cutoff.setHours(cutoff.getHours() - 1);
+                intervalMs = 1000 * 60; // 1 minute intervals
+                break;
+            case '2h':
+                cutoff.setHours(cutoff.getHours() - 2);
+                intervalMs = 1000 * 60 * 5; // 5 minute intervals
+                break;
+            case '12h':
+                cutoff.setHours(cutoff.getHours() - 12);
+                intervalMs = 1000 * 60 * 15; // 15 minute intervals
+                break;
+            case '1D':
+                cutoff.setHours(cutoff.getHours() - 24);
+                intervalMs = 1000 * 60 * 30; // 30 minute intervals
+                break;
+            case '2D':
+                cutoff.setHours(cutoff.getHours() - 48);
+                intervalMs = 1000 * 60 * 60; // Hourly
+                break;
+            case '3D':
+                cutoff.setHours(cutoff.getHours() - 72);
+                intervalMs = 1000 * 60 * 60; // Hourly
+                break;
+        }
+
+        const recentLogs = logs.filter(log => new Date(log.created_at) >= cutoff);
+
+        // Group by rounded timestamp
+        const grouped = recentLogs.reduce((acc, log) => {
+            const date = new Date(log.created_at);
+            // Round down to interval
+            const roundedTime = Math.floor(date.getTime() / intervalMs) * intervalMs;
+
+            acc[roundedTime] = (acc[roundedTime] || 0) + 1;
+            return acc;
+        }, {} as Record<number, number>);
+
+        // Sort and Format
         return Object.entries(grouped)
-            .map(([time, count]) => ({ time, count }))
-            .slice(-10);
-    }, [logs]);
+            .sort(([a], [b]) => Number(a) - Number(b))
+            .map(([timestamp, count]) => {
+                const date = new Date(Number(timestamp));
+                let timeLabel = '';
+
+                if (timeRange === '1m') {
+                    // Show HH:MM:SS
+                    timeLabel = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                } else if (['1h', '2h', '12h', '1D'].includes(timeRange)) {
+                    // Show HH:MM
+                    timeLabel = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                } else {
+                    // Show MM/DD HH:MM
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const hour = String(date.getHours()).padStart(2, '0');
+                    timeLabel = `${month}/${day} ${hour}:00`;
+                }
+
+                return { time: timeLabel, count };
+            });
+    }, [logs, timeRange]);
 
     const errorCount = logs.filter(l => l.status_code >= 400).length;
     const avgDuration = logs.length > 0 ? (logs.reduce((sum, l) => sum + l.duration_ms, 0) / logs.length).toFixed(2) : '0';
@@ -153,8 +223,31 @@ function Dashboard() {
                 {/* Chart */}
                 <Paper className="p-6">
                     <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-lg font-bold text-gray-800 dark:text-white">Request Activity</h2>
-                        <span className="text-sm text-gray-500 dark:text-gray-400">Last 10 time periods</span>
+                        <div>
+                            <h2 className="text-lg font-bold text-gray-800 dark:text-white">Request Activity</h2>
+                            <span className="text-sm text-gray-500 dark:text-gray-400">
+                                {timeRange === '1m' ? 'Live (Last Minute)' :
+                                    timeRange === '1h' ? 'Last Hour (1min intervals)' :
+                                        timeRange === '2h' ? 'Last 2 Hours (5min intervals)' :
+                                            timeRange === '12h' ? 'Last 12 Hours (15min intervals)' :
+                                                timeRange === '1D' ? 'Last 24 Hours (30min intervals)' :
+                                                    timeRange === '2D' ? 'Last 48 Hours (Hourly)' : 'Last 72 Hours (Hourly)'}
+                            </span>
+                        </div>
+                        <div className="flex bg-gray-100 dark:bg-slate-800 rounded-lg p-1 gap-1">
+                            {['1m', '1h', '2h', '12h', '1D', '2D', '3D'].map((range) => (
+                                <button
+                                    key={range}
+                                    onClick={() => setTimeRange(range as any)}
+                                    className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${timeRange === range
+                                        ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                                        }`}
+                                >
+                                    {range}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                     <div className="h-[300px] w-full">
                         <ResponsiveContainer width="100%" height="100%">

@@ -13,10 +13,12 @@ class ScenarioEngine
         $this->gemini = $gemini;
     }
 
-    public function runScenario(string $scenario, string $targetUrl): array
+    public function runScenario(string $scenario, ?string $inputMessage = null): array
     {
         // 1. Generate Content
-        $message = $this->gemini->generateResponse('Start a conversation', $scenario);
+        // If inputMessage exists, we represent it as what the Agent said, so Gemini (Scenario) replies to it.
+        $prompt = $inputMessage ?? 'Start a conversation';
+        $message = $this->gemini->generateResponse($prompt, $scenario);
 
         // 2. Send to Inbound Gateway (simulating a webhook)
         // Ensure INBOUND_GATEWAY_URL is set
