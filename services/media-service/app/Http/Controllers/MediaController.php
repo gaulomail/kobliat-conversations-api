@@ -9,6 +9,7 @@ use App\Services\VirusScannerService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Kobliat\Shared\Events\EventBus;
+use Illuminate\Support\Facades\Log;
 
 class MediaController extends Controller
 {
@@ -57,12 +58,16 @@ class MediaController extends Controller
         ]);
 
         // 4. Publish Event
-        $this->eventBus->publishEvent(new MediaUploaded(
-            $media->id,
-            $media->filename,
-            $media->content_type,
-            $media->storage_key
-        ));
+        try {
+            $this->eventBus->publishEvent(new MediaUploaded(
+                $media->id,
+                $media->filename,
+                $media->content_type,
+                $media->storage_key
+            ));
+        } catch (\Throwable $e) {
+            Log::error('EventBus Error (MediaUploaded): ' . $e->getMessage());
+        }
 
         return response()->json($media, 201);
     }

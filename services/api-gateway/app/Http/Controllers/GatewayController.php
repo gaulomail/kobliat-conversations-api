@@ -35,6 +35,29 @@ class GatewayController extends Controller
         }
     }
 
+    public function proxyDownload(Request $request, string $service, string $path)
+    {
+        try {
+            $response = $this->proxy->forward(
+                $service,
+                strtolower($request->method()),
+                $path,
+                $request->all(),
+                $request->headers->all()
+            );
+
+            if ($response->failed()) {
+                 return response()->json($response->json(), $response->status());
+            }
+
+            return response($response->body(), $response->status())
+                ->header('Content-Type', $response->header('Content-Type'));
+
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Gateway Error: '.$e->getMessage()], 502);
+        }
+    }
+
     /**
      * Aggregated Endpoint: Get Conversation with Messages
      */

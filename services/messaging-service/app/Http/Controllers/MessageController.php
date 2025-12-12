@@ -8,6 +8,7 @@ use App\Models\MessageHistory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Kobliat\Shared\Events\EventBus;
+use Illuminate\Support\Facades\Log;
 
 class MessageController extends Controller
 {
@@ -42,11 +43,15 @@ class MessageController extends Controller
         ]));
 
         if ($validated['direction'] === 'inbound') {
-            $this->eventBus->publishEvent(new MessageInboundCreated(
-                $message->id,
-                $message->conversation_id,
-                $message->body
-            ));
+            try {
+                $this->eventBus->publishEvent(new MessageInboundCreated(
+                    $message->id,
+                    $message->conversation_id,
+                    $message->body
+                ));
+            } catch (\Throwable $e) {
+                Log::error('EventBus Error (MessageInboundCreated): ' . $e->getMessage());
+            }
         }
 
         return response()->json($message, 201);

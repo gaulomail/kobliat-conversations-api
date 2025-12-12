@@ -7,6 +7,7 @@ use App\Events\ConversationParticipantAdded;
 use App\Models\Conversation;
 use App\Models\ConversationParticipant;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Kobliat\Shared\Events\EventBus;
 
 class ConversationService
@@ -31,11 +32,15 @@ class ConversationService
             $this->addParticipant($conversation, $customerId1, 'member');
             $this->addParticipant($conversation, $customerId2, 'member');
 
-            $this->eventBus->publishEvent(new ConversationOpened(
-                $conversation->id,
-                'direct',
-                [$customerId1, $customerId2]
-            ));
+            try {
+                $this->eventBus->publishEvent(new ConversationOpened(
+                    $conversation->id,
+                    'direct',
+                    [$customerId1, $customerId2]
+                ));
+            } catch (\Throwable $e) {
+                Log::error('EventBus Error (ConversationOpened): ' . $e->getMessage());
+            }
 
             return $conversation;
         });
@@ -50,11 +55,15 @@ class ConversationService
             'joined_at' => now(),
         ]);
 
-        $this->eventBus->publishEvent(new ConversationParticipantAdded(
-            $conversation->id,
-            $customerId,
-            $role
-        ));
+        try {
+            $this->eventBus->publishEvent(new ConversationParticipantAdded(
+                $conversation->id,
+                $customerId,
+                $role
+            ));
+        } catch (\Throwable $e) {
+            Log::error('EventBus Error (ConversationParticipantAdded): ' . $e->getMessage());
+        }
 
         return $participant;
     }

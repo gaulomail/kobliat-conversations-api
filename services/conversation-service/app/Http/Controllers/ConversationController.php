@@ -18,7 +18,7 @@ class ConversationController extends Controller
 
     public function index(): JsonResponse
     {
-        return response()->json(Conversation::paginate(20));
+        return response()->json(Conversation::orderByDesc('created_at')->paginate(20));
     }
 
     public function show(string $id): JsonResponse

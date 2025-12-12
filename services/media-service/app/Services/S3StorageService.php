@@ -13,9 +13,10 @@ class S3StorageService
      */
     public function store(UploadedFile $file, string $path = 'uploads'): string
     {
+        $disk = env('FILESYSTEM_DISK', 'public');
         // For MinIO compatibility, ensure visibility is correct if using public buckets
         $filename = Str::uuid().'.'.$file->getClientOriginalExtension();
-        $key = $file->storeAs($path, $filename, 's3');
+        $key = $file->storeAs($path, $filename, $disk);
 
         return $key;
     }
@@ -25,7 +26,11 @@ class S3StorageService
      */
     public function getPresignedUrl(string $key, int $minutes = 60): string
     {
-        return Storage::disk('s3')->temporaryUrl($key, now()->addMinutes($minutes));
+        $disk = env('FILESYSTEM_DISK', 'public');
+        if ($disk === 'local' || $disk === 'public') {
+            return Storage::disk($disk)->url($key);
+        }
+        return Storage::disk($disk)->temporaryUrl($key, now()->addMinutes($minutes));
     }
 
     /**
@@ -33,6 +38,7 @@ class S3StorageService
      */
     public function delete(string $key): bool
     {
-        return Storage::disk('s3')->delete($key);
+        $disk = env('FILESYSTEM_DISK', 'public');
+        return Storage::disk($disk)->delete($key);
     }
 }

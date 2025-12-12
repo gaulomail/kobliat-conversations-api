@@ -1,5 +1,7 @@
 <?php
 
+
+
 use App\Http\Controllers\GatewayController;
 use App\Http\Middleware\ApiKeyMiddleware;
 use Illuminate\Http\Request;
@@ -69,6 +71,9 @@ Route::prefix('v1')->middleware(ApiKeyMiddleware::class)->group(function () {
     });
     Route::get('/media/{id}', function ($id) {
         return app(GatewayController::class)->proxy(request(), 'media', "/api/media/{$id}");
+    });
+    Route::get('/media/{id}/download', function ($id) {
+        return app(GatewayController::class)->proxyDownload(request(), 'media', "/api/media/{$id}/download");
     });
 
     // API Logs

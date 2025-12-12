@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, Loader, Play, RefreshCw } from 'lucide-react';
+import { Send, Bot, Paperclip, X, File as FileIcon, Loader2, Image as ImageIcon, Play, RefreshCw } from 'lucide-react';
 import DashboardLayout from '../layouts/DashboardLayout';
 import Button from '../components/Button';
 
@@ -11,12 +11,18 @@ interface Message {
     direction?: 'inbound' | 'outbound';
     created_at?: string;
     error?: string; // For API error responses
+    media_id?: string;
+    content_type?: string;
+    is_error?: boolean;
+    is_processed?: boolean;
 }
 
 interface Customer {
-    id: string;
+    id: string; // This is the PARTICIPANT ID (from conversation_participants table)
+    customer_id?: string; // This is the CUSTOMER ID (from customers table)
     name: string;
     external_id: string;
+    external_type?: string;
 }
 
 interface Conversation {
@@ -26,12 +32,17 @@ interface Conversation {
     preview?: string;
     participantName?: string;
     last_message_at?: string;
+    created_at?: string; // Added for sort fallback
 }
+// ... (Chat component)
 
 const Chat: React.FC = () => {
     const [messages, setMessages] = useState<Message[]>([]);
-    const [inputMessage, setInputMessage] = useState('');
-    const [loading, setLoading] = useState(false);
+    const [input, setInput] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [attachment, setAttachment] = useState<{ id: string; filename: string; contentType: string } | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [conversation, setConversation] = useState<Conversation | null>(null);
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [currentCustomer, setCurrentCustomer] = useState<Customer | null>(null);
@@ -49,18 +60,14 @@ const Chat: React.FC = () => {
         scrollToBottom();
     }, [messages]);
 
-    useEffect(() => {
-        loadConversations();
-    }, []);
-
     const loadConversations = async () => {
         try {
-            console.log('Loading conversations from:', `${BASE_URL}/conversations`);
+
             const response = await fetch(`${BASE_URL}/conversations`, {
                 headers: { 'X-API-Key': API_KEY }
             });
 
-            console.log('Conversations response status:', response.status);
+
 
             if (!response.ok) {
                 const errorText = await response.text();
@@ -70,10 +77,10 @@ const Chat: React.FC = () => {
             }
 
             const data = await response.json();
-            console.log('Conversations data received:', data);
+
 
             const list: Conversation[] = Array.isArray(data) ? data : (data.data || []);
-            console.log('Parsed conversation list:', list);
+
 
             // Initial render
             setConversations(list);
@@ -96,7 +103,7 @@ const Chat: React.FC = () => {
                     const lastMsg = msgs.length > 0 ? msgs[msgs.length - 1] : null;
 
                     const participants = detail.participants || [];
-                    // Prefer showing name of the non-assistant participant
+                    // Prefer showing name of the non-assistant participant (The Customer/User)
                     const customer = participants.find((p: any) => p.external_type !== 'assistant') || participants[0];
                     const name = customer?.name || 'Unknown User';
 
@@ -112,7 +119,18 @@ const Chat: React.FC = () => {
                 }
             }));
 
-            console.log('Enriched conversations:', enriched);
+            // Sort by message date descending
+            // Sort by message date descending (fallback to created_at for new chats)
+            enriched.sort((a, b) => {
+                const getSortTime = (c: Conversation) => {
+                    if (c.last_message_at) return new Date(c.last_message_at).getTime();
+                    if (c.created_at) return new Date(c.created_at).getTime();
+                    return 0;
+                };
+                return getSortTime(b) - getSortTime(a);
+            });
+
+
             setConversations(enriched);
         } catch (error) {
             console.error('Failed to load conversations:', error);
@@ -120,35 +138,116 @@ const Chat: React.FC = () => {
         }
     };
 
+    useEffect(() => {
+        loadConversations();
+
+        // Restore active conversation if present
+        const savedConvId = localStorage.getItem('activeConversationId');
+        if (savedConvId) {
+
+            loadConversation(savedConvId);
+        }
+    }, []);
+
+    const identifyParticipants = (participants: Customer[]) => {
+        if (!participants || participants.length === 0) return { customer: null, bot: null };
+
+        // 1. Find Bot
+        let bot = participants.find(p => p.external_type === 'assistant');
+        if (!bot) bot = participants.find(p => p.name?.toLowerCase().includes('assistant') || p.name?.toLowerCase().includes('bot') || p.name?.toLowerCase().includes('ai'));
+
+        // 2. Find Customer (The one who is NOT the bot)
+        let customer;
+        if (bot) {
+            customer = participants.find(p => p.id !== bot?.id);
+        } else {
+            // Heuristics if bot not explicitly marked
+            customer = participants.find(p => p.name === 'You');
+            if (!customer) {
+                // heuristic: The one with 'web' or 'whatsapp' type is likely the user
+                customer = participants.find(p => p.external_type === 'web' || p.external_type === 'whatsapp');
+            }
+
+            // Fallback: If we have 2 participants and identifying one fails, assume strict ordering or assignment
+            if (!customer && participants.length > 0) customer = participants[0];
+            if (!bot && participants.length > 1) bot = participants[1];
+        }
+
+        // Safety: ensure they are different if possible
+        if (customer?.id === bot?.id && participants.length > 1) {
+            bot = participants.find(p => p.id !== customer?.id);
+        }
+
+        return { customer: customer || null, bot: bot || null };
+    };
+
     const loadConversation = async (convId: string) => {
         try {
-            setLoading(true);
+            setIsLoading(true);
             const response = await fetch(`${BASE_URL}/conversations/${convId}/details`, {
                 headers: { 'X-API-Key': API_KEY }
             });
+
+            if (!response.ok) {
+                console.error('Failed to fetch conversation details');
+                localStorage.removeItem('activeConversationId');
+                setIsLoading(false);
+                return;
+            }
+
             const convData = await response.json();
 
-            setConversation(convData);
-            const msgs = convData.messages;
-            setMessages(Array.isArray(msgs) ? msgs : (msgs?.data || []));
 
-            if (convData.participants && convData.participants.length >= 2) {
-                setCurrentCustomer(convData.participants[0]);
-                setBotCustomer(convData.participants[1]);
+            // Save to local storage for persistence on reload
+            localStorage.setItem('activeConversationId', convId);
+
+            const msgs = convData.messages;
+            let messageList = Array.isArray(msgs) ? msgs : (msgs?.data || []);
+
+            // Enrich messages with sender names from participants for robust alignment
+            if (convData.participants) {
+                const nameMap = new Map<string, string>();
+                convData.participants.forEach((p: any) => {
+                    if (p.customer_id) nameMap.set(p.customer_id, p.name);
+                    if (p.id) nameMap.set(p.id, p.name);
+                });
+
+                messageList = messageList.map((m: any) => ({
+                    ...m,
+                    sender_name: m.sender_name || nameMap.get(m.sender_customer_id) || (m.sender_customer_id === botCustomer?.id ? 'AI Assistant' : '')
+                }));
             }
+
+            setMessages(messageList);
+
+            if (convData.participants) {
+                const { customer, bot } = identifyParticipants(convData.participants);
+
+
+                if (customer) setCurrentCustomer(customer);
+                if (bot) setBotCustomer(bot);
+
+                setConversation({
+                    ...convData,
+                    participants: [customer, bot].filter(Boolean) as Customer[]
+                });
+            } else {
+                setConversation(convData);
+            }
+
         } catch (error) {
             console.error('Failed to load conversation:', error);
             setMessages([]);
         } finally {
-            setLoading(false);
+            setIsLoading(false);
         }
     };
 
     const initializeChat = async () => {
-        setLoading(true);
+        setIsLoading(true);
         setMessages([]);
         try {
-            console.log('Initializing new chat...');
+
 
             const userResponse = await fetch(`${BASE_URL}/customers`, {
                 method: 'POST',
@@ -156,7 +255,7 @@ const Chat: React.FC = () => {
                 body: JSON.stringify({ external_id: `user_${Date.now()}`, external_type: 'web', name: 'You' })
             });
             const user = await userResponse.json();
-            console.log('Created user:', user);
+
             setCurrentCustomer(user);
 
             const botResponse = await fetch(`${BASE_URL}/customers`, {
@@ -165,7 +264,7 @@ const Chat: React.FC = () => {
                 body: JSON.stringify({ external_id: `bot_${Date.now()}`, external_type: 'assistant', name: 'AI Assistant' })
             });
             const bot = await botResponse.json();
-            console.log('Created bot:', bot);
+
             setBotCustomer(bot);
 
             const convResponse = await fetch(`${BASE_URL}/conversations`, {
@@ -174,18 +273,19 @@ const Chat: React.FC = () => {
                 body: JSON.stringify({ type: 'direct', participants: [user.id, bot.id] })
             });
             const conv = await convResponse.json();
-            console.log('Created conversation:', conv);
+
             setConversation({ ...conv, participants: [user, bot] });
+            localStorage.setItem('activeConversationId', conv.id);
 
             await sendBotMessage(conv.id, bot.id, "Hello! I'm your AI assistant. How can I help you today?");
 
             // Reload conversations list to show the new conversation
-            console.log('Reloading conversations list...');
+
             await loadConversations();
         } catch (error) {
             console.error('Failed to initialize chat:', error);
         } finally {
-            setLoading(false);
+            setIsLoading(false);
         }
     };
 
@@ -197,7 +297,7 @@ const Chat: React.FC = () => {
                 body: JSON.stringify({ conversation_id: conversationId, direction: 'inbound', body: messageText, sender_customer_id: botId })
             });
             const message = await response.json();
-            console.log('Bot message response:', message);
+
 
             // Ensure body is preserved
             const messageWithBody = {
@@ -213,45 +313,52 @@ const Chat: React.FC = () => {
     };
 
     const sendMessage = async () => {
-        if (!inputMessage.trim() || !conversation || !currentCustomer) return;
+        if ((!input.trim() && !attachment) || !conversation || !currentCustomer) return;
 
-        const userMessage = inputMessage;
-        setInputMessage('');
-        setLoading(true);
+        const messagePayload = {
+            conversation_id: conversation.id,
+            direction: 'outbound' as const, // Fix literal type inference
+            sender_customer_id: currentCustomer?.customer_id || currentCustomer?.id, // Prioritize customer_id
+            body: input || (attachment ? 'Sent an attachment' : ''),
+            media_id: attachment?.id,
+            content_type: attachment?.contentType || 'text/plain',
+            created_at: new Date().toISOString()
+        };
+
+        // Optimistic Update
+        const tempId = `temp-${Date.now()}`;
+        const optimisticMessage: Message = {
+            id: tempId,
+            ...messagePayload,
+            sender_name: 'You',
+            is_processed: false
+        };
+
+        setMessages(prev => [...prev, optimisticMessage]);
+        setInput('');
+        setAttachment(null); // Clear attachment
 
         try {
-            const payload = {
-                conversation_id: conversation.id,
-                direction: 'outbound',
-                body: userMessage,
-                sender_customer_id: currentCustomer.id
-            };
-
-            console.log('Sending message payload:', payload);
-
             const response = await fetch(`${BASE_URL}/messages`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY },
-                body: JSON.stringify(payload)
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-Key': API_KEY,
+                },
+                body: JSON.stringify(messagePayload),
             });
 
             const message = await response.json();
-            console.log('Received message response:', message);
-
-            // Ensure body is preserved
-            const messageWithBody = {
-                ...message,
-                body: message.body || userMessage, // Use original message if body is missing
-                sender_name: 'You'
-            };
-
-            console.log('Adding message to state:', messageWithBody);
-            setMessages(prev => [...prev, messageWithBody]);
 
 
+            setMessages(prev => prev.map(msg =>
+                msg.id === tempId ? { ...message, sender_name: 'You', is_processed: true } : msg
+            ));
+
+            // Simulate AI response after user message
+            setIsLoading(true);
             setTimeout(async () => {
-                // Generate varied AI responses based on message content
-                const lowerMessage = userMessage.toLowerCase();
+                const lowerMessage = (messagePayload.body || '').toLowerCase();
                 let aiResponse = '';
 
                 if (lowerMessage.includes('hello') || lowerMessage.includes('hi') || lowerMessage.includes('hey')) {
@@ -294,7 +401,10 @@ const Chat: React.FC = () => {
                         "Let me help clarify that for you. What aspect interests you most?"
                     ];
                     aiResponse = questionResponses[Math.floor(Math.random() * questionResponses.length)];
-                } else {
+                } else if (messagePayload.media_id) {
+                    aiResponse = "Thanks for sharing the attachment! How can I help you with it?";
+                }
+                else {
                     const generalResponses = [
                         "I understand. Could you tell me more about that?",
                         "Interesting! What else would you like to share?",
@@ -307,16 +417,20 @@ const Chat: React.FC = () => {
                 }
 
                 await sendBotMessage(conversation.id, botCustomer!.id, aiResponse);
-                setLoading(false);
+                setIsLoading(false);
             }, 1000);
+
         } catch (error) {
             console.error('Failed to send message:', error);
-            setLoading(false);
+            setMessages(prev => prev.map(msg =>
+                msg.id === tempId ? { ...msg, is_error: true, body: 'Failed to send message.' } : msg
+            ));
+            setIsLoading(false);
         }
     };
 
     const runSimulator = async (scenario: 'curious_shopper' | 'angry_customer') => {
-        setLoading(true);
+        setIsLoading(true);
         try {
             const response = await fetch('http://localhost:8006/api/simulate', {
                 method: 'POST',
@@ -330,7 +444,7 @@ const Chat: React.FC = () => {
         } catch (error) {
             console.error('Simulator error:', error);
         } finally {
-            setLoading(false);
+            setIsLoading(false);
         }
     };
 
@@ -353,11 +467,11 @@ const Chat: React.FC = () => {
                         </div>
                         <div className="flex gap-3">
                             {!conversation ? (
-                                <Button onClick={initializeChat} disabled={loading} className="!bg-white/20 !border-white/30 hover:!bg-white/30 !text-white backdrop-blur-sm">
+                                <Button onClick={initializeChat} disabled={isLoading} className="!bg-white/20 !border-white/30 hover:!bg-white/30 !text-white backdrop-blur-sm">
                                     <Play size={16} /> Start Chat
                                 </Button>
                             ) : (
-                                <Button onClick={initializeChat} disabled={loading} className="!bg-white/20 !border-white/30 hover:!bg-white/30 !text-white backdrop-blur-sm">
+                                <Button onClick={initializeChat} disabled={isLoading} className="!bg-white/20 !border-white/30 hover:!bg-white/30 !text-white backdrop-blur-sm">
                                     <RefreshCw size={16} /> New Chat
                                 </Button>
                             )}
@@ -375,10 +489,10 @@ const Chat: React.FC = () => {
                             <p className="text-xs text-gray-600 dark:text-gray-400">Click a scenario to generate AI-powered messages</p>
                         </div>
                         <div className="flex gap-2">
-                            <Button variant="outlined" onClick={() => runSimulator('curious_shopper')} disabled={loading} className="!text-sm">
+                            <Button variant="outlined" onClick={() => runSimulator('curious_shopper')} disabled={isLoading} className="!text-sm">
                                 <Bot size={14} /> Curious Shopper
                             </Button>
-                            <Button variant="outlined" onClick={() => runSimulator('angry_customer')} disabled={loading} className="!text-sm">
+                            <Button variant="outlined" onClick={() => runSimulator('angry_customer')} disabled={isLoading} className="!text-sm">
                                 <Bot size={14} /> Angry Customer
                             </Button>
                         </div>
@@ -441,47 +555,67 @@ const Chat: React.FC = () => {
                             ) : (
                                 <>
                                     {messages.map((message, index) => {
-                                        const isUser = message.sender_customer_id === currentCustomer?.id;
+                                        // Use direction as primary source of truth for alignment
+                                        // Outbound = User (Right), Inbound = Bot/Others (Left)
+                                        const isUser = message.direction === 'outbound' ||
+                                            (message.direction !== 'inbound' && message.sender_name === 'You');
+
                                         const messageKey = message.id || `msg-${index}`;
 
                                         // Handle error messages
-                                        if (message.error) {
-                                            console.error('Message error:', message.error);
-                                            return null;
+                                        if (message.is_error) {
+                                            return (
+                                                <div key={messageKey} className="flex justify-center my-4">
+                                                    <div className="bg-red-50 text-red-600 px-4 py-2 rounded-lg text-sm flex items-center gap-2 shadow-sm border border-red-100">
+                                                        <span>⚠️</span>
+                                                        {message.body}
+                                                    </div>
+                                                </div>
+                                            );
                                         }
 
-                                        // Show placeholder for messages without body
-                                        const messageBody = message.body || '[Message content unavailable]';
-
                                         return (
-                                            <div key={messageKey} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-                                                <div className={`flex gap-3 max-w-[70%] ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
-                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isUser ? 'bg-purple-600 text-white' : 'bg-gray-600 dark:bg-gray-700 text-white'}`}>
-                                                        {isUser ? <User size={16} /> : <Bot size={16} />}
-                                                    </div>
-                                                    <div>
-                                                        <div className={`rounded-lg px-4 py-2 ${isUser ? 'bg-purple-600 text-white' : 'bg-gray-100 dark:bg-slate-800 text-gray-900 dark:text-white'}`}>
-                                                            <p className="text-sm">{messageBody}</p>
+                                            <div
+                                                key={messageKey}
+                                                className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
+                                            >
+                                                <div
+                                                    className={`max-w-[80%] rounded-2xl px-5 py-3 shadow-md ${isUser
+                                                        ? 'bg-gradient-to-br from-indigo-600 to-violet-600 text-white rounded-br-none'
+                                                        : 'bg-white dark:bg-slate-800 text-gray-800 dark:text-gray-100 border border-gray-100 dark:border-slate-700 rounded-bl-none'
+                                                        }`}
+                                                >
+                                                    {!isUser && (
+                                                        <div className="text-xs font-semibold mb-1 opacity-70 flex items-center gap-2">
+                                                            {message.sender_name === 'AI Assistant' && <Bot size={12} />}
+                                                            {message.sender_name}
                                                         </div>
-                                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 px-1">
-                                                            {message.created_at
-                                                                ? new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                                                                : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                                                            }
-                                                        </p>
+                                                    )}
+
+                                                    {/* Image Attachment */}
+                                                    {message.media_id && message.content_type?.startsWith('image/') && (
+                                                        <ChatImage mediaId={message.media_id} />
+                                                    )}
+
+                                                    <p className="whitespace-pre-wrap leading-relaxed">{message.body}</p>
+                                                    <div className={`text-[10px] mt-2 flex items-center justify-end gap-1 ${isUser ? 'text-indigo-100' : 'text-gray-400'
+                                                        }`}>
+                                                        {new Date(message.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                        {isUser && (
+                                                            <span>{message.is_processed ? '✓✓' : '✓'}</span>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
                                         );
-                                    })}
-                                    {loading && (
+                                    })}{isLoading && (
                                         <div className="flex justify-start">
                                             <div className="flex gap-3">
                                                 <div className="w-8 h-8 rounded-full bg-gray-600 dark:bg-gray-700 flex items-center justify-center">
                                                     <Bot size={16} className="text-white" />
                                                 </div>
                                                 <div className="bg-gray-100 dark:bg-slate-800 rounded-lg px-4 py-2">
-                                                    <Loader className="w-5 h-5 animate-spin text-gray-600 dark:text-gray-400" />
+                                                    <Loader2 className="w-5 h-5 animate-spin text-gray-600 dark:text-gray-400" />
                                                 </div>
                                             </div>
                                         </div>
@@ -491,42 +625,143 @@ const Chat: React.FC = () => {
                             )}
                         </div>
 
-                        {/* Input */}
-                        {conversation && (
-                            <div className="border-t border-gray-200 dark:border-slate-800 p-4 bg-gray-50 dark:bg-slate-900">
-                                <div className="flex gap-3">
-                                    <input type="text" value={inputMessage} onChange={(e) => setInputMessage(e.target.value)}
-                                        onKeyPress={(e) => e.key === 'Enter' && sendMessage()} placeholder="Type your message..." disabled={loading}
-                                        className="flex-1 px-4 py-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                    />
-                                    <Button onClick={sendMessage} disabled={loading || !inputMessage.trim()}>
-                                        <Send size={16} /> Send
-                                    </Button>
+                        {/* Input Area */}
+                        <div className="p-4 border-t border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-b-xl">
+                            {attachment && (
+                                <div className="mb-3 flex items-center gap-2 p-2 bg-slate-100 dark:bg-slate-800 rounded-lg w-fit">
+                                    <div className="bg-slate-200 dark:bg-slate-700 p-1.5 rounded">
+                                        {attachment.contentType.startsWith('image/') ? <ImageIcon size={16} /> : <FileIcon size={16} />}
+                                    </div>
+                                    <span className="text-sm truncate max-w-[200px] text-slate-700 dark:text-slate-300">{attachment.filename}</span>
+                                    <button
+                                        onClick={() => setAttachment(null)}
+                                        className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full"
+                                    >
+                                        <X size={14} />
+                                    </button>
                                 </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
+                            )}
+                            <div className="flex gap-2">
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    className="hidden"
+                                    onChange={async (e) => {
+                                        const file = e.target.files?.[0];
+                                        if (!file) return;
 
-            {/* Info Panel */}
-            {conversation && (
-                <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-                    <div className="flex items-start gap-3">
-                        <Bot className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-                        <div className="text-sm text-blue-800 dark:text-blue-200">
-                            <p className="font-medium mb-1">Active Conversation</p>
-                            <div className="text-xs space-y-1">
-                                <p>Conversation ID: <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded font-mono">{conversation.id}</code></p>
-                                <p>Participants: {currentCustomer?.name} & {botCustomer?.name}</p>
-                                <p>Messages: {messages.length}</p>
+                                        setIsUploading(true);
+                                        const formData = new FormData();
+                                        formData.append('file', file);
+                                        formData.append('owner_service', 'ops-dashboard');
+
+                                        try {
+                                            // Upload via Gateway
+                                            const res = await fetch(`${BASE_URL}/media/upload`, {
+                                                method: 'POST',
+                                                headers: { 'X-API-Key': API_KEY },
+                                                body: formData
+                                            });
+                                            const data = await res.json();
+                                            if (res.ok) {
+                                                setAttachment({
+                                                    id: data.id,
+                                                    filename: data.filename,
+                                                    contentType: data.content_type
+                                                });
+                                            } else {
+                                                console.error('Upload failed', data);
+                                                alert('Upload failed: ' + (data.error || 'Unknown error'));
+                                            }
+                                        } catch (err) {
+                                            console.error('Upload error', err);
+                                            alert('Upload failed');
+                                        } finally {
+                                            setIsUploading(false);
+                                            if (fileInputRef.current) fileInputRef.current.value = '';
+                                        }
+                                    }}
+                                />
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={isUploading || !conversation}
+                                    className="p-3 text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 transition-colors disabled:opacity-50"
+                                    title="Attach file"
+                                >
+                                    {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Paperclip className="w-5 h-5" />}
+                                </button>
+                                <input
+                                    type="text"
+                                    value={input}
+                                    onChange={(e) => setInput(e.target.value)}
+                                    onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                                    placeholder="Type your message..."
+                                    disabled={!conversation || isUploading}
+                                    className="flex-1 bg-gray-100 dark:bg-slate-800 text-gray-900 dark:text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                                />
+                                <button
+                                    onClick={sendMessage}
+                                    disabled={(!input.trim() && !attachment) || !conversation || isUploading}
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                >
+                                    <Send className="w-5 h-5" />
+                                    <span className="hidden sm:inline">Send</span>
+                                </button>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+
+
+                    {/* Info Panel */}
+                    {conversation && (
+                        <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                            <div className="flex items-start gap-3">
+                                <Bot className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                                <div className="text-sm text-blue-800 dark:text-blue-200">
+                                    <p className="font-medium mb-1">Active Conversation</p>
+                                    <div className="text-xs space-y-1">
+                                        <p>Conversation ID: <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded font-mono">{conversation.id}</code></p>
+                                        <p>Participants: {currentCustomer?.name} & {botCustomer?.name}</p>
+                                        <p>Messages: {messages.length}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>{/* Close col-span-9 */}
+            </div>{/* Close grid */}
         </DashboardLayout>
     );
 };
+
+function ChatImage({ mediaId, alt }: { mediaId: string; alt?: string }) {
+    const [src, setSrc] = useState<string | null>(null);
+    const [error, setError] = useState(false);
+
+    useEffect(() => {
+        if (!mediaId) return;
+        fetch(`${'http://localhost:8000/api/v1'}/media/${mediaId}/download`, {
+            headers: { 'X-API-Key': 'kobliat-secret-key' }
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.download_url) setSrc(data.download_url);
+                else setError(true);
+            })
+            .catch(() => setError(true));
+    }, [mediaId]);
+
+    if (error) return <div className="text-xs text-red-400 flex items-center gap-1"><X size={12} /> Failed to load image</div>;
+    if (!src) return <div className="w-48 h-32 bg-slate-200 dark:bg-slate-700 animate-pulse rounded-lg" />;
+
+    return (
+        <img
+            src={src}
+            alt={alt || "Attachment"}
+            className="max-w-full rounded-lg mt-2 cursor-pointer hover:opacity-95 transition-opacity max-h-[300px] object-cover"
+            onClick={() => window.open(src, '_blank')}
+        />
+    );
+}
 
 export default Chat;
