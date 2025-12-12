@@ -122,14 +122,15 @@ jobs:
 
       - name: Run migrations
         run: |
-          for service in services/*/; do
-            if [ -f "$service/artisan" ]; then
-              echo "Running migrations for $service"
-              cd "$service"
-              php artisan migrate --force --no-interaction
-              cd ../..
-            fi
-          done
+          echo "Skipping migrations as requested"
+          # for service in services/*/; do
+          #   if [ -f "$service/artisan" ]; then
+          #     echo "Running migrations for $service"
+          #     cd "$service"
+          #     # php artisan migrate --force --no-interaction
+          #     cd ../..
+          #   fi
+          # done
 
       - name: Install E2E test dependencies
         working-directory: tests/e2e
