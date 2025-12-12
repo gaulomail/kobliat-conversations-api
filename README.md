@@ -81,17 +81,18 @@ Kobliat Conversations is a **production-ready microservices platform** designed 
               └──────────────────────┘
 ```
 
+
 ### Microservices
 
 | Service | Port | Responsibility | Database |
 |---------|------|----------------|----------|
-| **API Gateway** | 8000 | Request routing, logging, aggregation | SQLite |
-| **Customer Service** | 8001 | Customer management, profiles | SQLite |
-| **Conversation Service** | 8002 | Conversation lifecycle, participants | SQLite |
-| **Messaging Service** | 8003 | Message storage, retrieval | SQLite |
-| **Media Service** | 8004 | File uploads, media handling | SQLite |
-| **Inbound Gateway** | 8005 | Webhook receiver, channel integration | SQLite |
-| **Chat Simulator** | 8006 | AI-powered chat simulation (Gemini) | SQLite |
+| **API Gateway** | 8000 | Request routing, logging, aggregation | MySQL |
+| **Customer Service** | 8001 | Customer management, profiles | MySQL |
+| **Conversation Service** | 8002 | Conversation lifecycle, participants | MySQL |
+| **Messaging Service** | 8003 | Message storage, retrieval | MySQL |
+| **Media Service** | 8004 | File uploads, media handling | MySQL |
+| **Inbound Gateway** | 8005 | Webhook receiver, channel integration | MySQL |
+| **Chat Simulator** | 8006 | AI-powered chat simulation (Gemini) | MySQL |
 
 ### Frontend
 
@@ -163,7 +164,7 @@ Before you begin, ensure you have the following installed:
 - **PHP** 8.1 or higher
 - **Composer** 2.x
 - **Node.js** 18+ and npm
-- **MySQL** 8.0+ (for production) or **SQLite** (for development)
+- **MySQL** 8.0+
 - **Git**
 - **Homebrew** (macOS only - for infrastructure setup)
 
@@ -230,7 +231,7 @@ For those who prefer granular control:
 cp .env.example .env
 # Edit .env with your database credentials
 
-# 2. Install infrastructure (optional - skip if using SQLite)
+# 2. Install infrastructure
 ./scripts/unix/setup-local.sh
 
 # 3. Start services
@@ -251,7 +252,7 @@ Edit your `.env` file to configure:
 
 ```bash
 # Database Configuration
-DB_CONNECTION=mysql          # or sqlite for development
+DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_USER=root                 # Your MySQL username
@@ -638,7 +639,7 @@ docker-compose logs -f
 ### Backend
 - **Framework**: Laravel 10.x
 - **Language**: PHP 8.1+
-- **Database**: SQLite (dev), MySQL/PostgreSQL (prod)
+- **Database**: MySQL 8.0+
 - **Testing**: PHPUnit
 - **API**: RESTful
 
