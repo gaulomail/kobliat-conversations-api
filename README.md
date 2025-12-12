@@ -85,13 +85,13 @@ Kobliat Conversations is a **production-ready microservices platform** designed 
 
 | Service | Port | Responsibility | Database |
 |---------|------|----------------|----------|
-| **API Gateway** | 8000 | Request routing, logging, aggregation | MySQL |
-| **Customer Service** | 8001 | Customer management, profiles | MySQL |
-| **Conversation Service** | 8002 | Conversation lifecycle, participants | MySQL |
-| **Messaging Service** | 8003 | Message storage, retrieval | MySQL |
-| **Media Service** | 8004 | File uploads, media handling | MySQL |
-| **Inbound Gateway** | 8005 | Webhook receiver, channel integration | MySQL |
-| **Chat Simulator** | 8006 | AI-powered chat simulation (Gemini) | MySQL |
+| **API Gateway** | 8000 | Request routing, logging, aggregation | SQLite |
+| **Customer Service** | 8001 | Customer management, profiles | SQLite |
+| **Conversation Service** | 8002 | Conversation lifecycle, participants | SQLite |
+| **Messaging Service** | 8003 | Message storage, retrieval | SQLite |
+| **Media Service** | 8004 | File uploads, media handling | SQLite |
+| **Inbound Gateway** | 8005 | Webhook receiver, channel integration | SQLite |
+| **Chat Simulator** | 8006 | AI-powered chat simulation (Gemini) | SQLite |
 
 ### Frontend
 
@@ -158,15 +158,20 @@ Kobliat Conversations is a **production-ready microservices platform** designed 
 
 ### Prerequisites
 
+Before you begin, ensure you have the following installed:
+
 - **PHP** 8.1 or higher
 - **Composer** 2.x
 - **Node.js** 18+ and npm
-- **MySQL** 8.0+
+- **MySQL** 8.0+ (for production) or **SQLite** (for development)
 - **Git**
+- **Homebrew** (macOS only - for infrastructure setup)
 
 ### Installation
 
-#### Option 1: Automated Setup (Recommended)
+#### One-Command Setup (Recommended)
+
+The easiest way to get started is with our all-in-one setup script:
 
 **Unix/macOS:**
 ```bash
@@ -174,50 +179,176 @@ Kobliat Conversations is a **production-ready microservices platform** designed 
 git clone <repository-url>
 cd kobliat-conversations
 
-# Run setup script
-# Run the complete setup and start services
-./scripts/unix/install-and-run.sh
+# Run the master setup script
+./scripts/unix/setup.sh
 ```
 
-**Windows (PowerShell):**
-```powershell
-# Clone the repository
+This script will:
+1. ✅ Create `.env` file from `.env.example` (if needed)
+2. ✅ Prompt you to configure database credentials
+3. ✅ Install infrastructure (MySQL, Kafka, MinIO via Homebrew)
+4. ✅ Create MySQL databases with `kobliat_` prefix
+5. ✅ Install all backend dependencies (Composer)
+6. ✅ Configure all service `.env` files from central config
+7. ✅ Run all database migrations
+8. ✅ Install frontend dependencies (npm)
+9. ✅ Optionally start all services
+
+**Windows:**
+```cmd
+REM Clone the repository
 git clone <repository-url>
 cd kobliat-conversations
 
-# Run the complete setup and start services
-.\scripts\windows\install-and-run.ps1
+REM Run setup script
+scripts\windows\setup-local.bat
+
+REM Install app dependencies and run migrations
+scripts\windows\install-and-run.bat
 ```
 
-#### Option 2: Manual Setup
+#### Setup Without Auto-Start
+
+If you want to set up everything but start services manually later:
+
+**Unix/macOS:**
+```bash
+# Complete setup without starting services
+./scripts/unix/setup-local.sh
+
+# Later, when ready to start:
+./scripts/unix/start-all.sh
+```
+
+#### Manual Setup (Advanced Users)
+
+For those who prefer granular control:
+
+**Unix/macOS:**
+```bash
+# 1. Create and configure .env
+cp .env.example .env
+# Edit .env with your database credentials
+
+# 2. Install infrastructure (optional - skip if using SQLite)
+./scripts/unix/setup-local.sh
+
+# 3. Start services
+./scripts/unix/start-all.sh
+```
+
+**Note**: If you skip `setup-local.sh`, you'll need to manually:
+- Install Composer dependencies for each service
+- Create `.env` files for each service
+- Run migrations for each service
+- Install npm dependencies for the frontend
+
+### Configuration
+
+#### Required Environment Variables
+
+Edit your `.env` file to configure:
 
 ```bash
-# 1. Install backend dependencies
-for service in api-gateway customer-service conversation-service messaging-service media-service inbound-gateway chat-simulator; do
-    cd services/$service
-    composer install
-    cp .env.example .env
-    php artisan key:generate
-    php artisan migrate
-    cd ../..
-done
+# Database Configuration
+DB_CONNECTION=mysql          # or sqlite for development
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_USER=root                 # Your MySQL username
+DB_PASSWORD=your_password    # Your MySQL password
 
-# 2. Install frontend dependencies
-cd frontends/ops-dashboard
-npm install
-cd ../..
+# Database Names (automatically created)
+DB_NAME_CUSTOMER=kobliat_customer_db
+DB_NAME_CONVERSATION=kobliat_conversation_db
+DB_NAME_MESSAGING=kobliat_messaging_db
+DB_NAME_MEDIA=kobliat_media_db
+DB_NAME_GATEWAY=kobliat_gateway_db
+```
 
-# 3. Start services (use concurrently or individual terminals)
-./scripts/unix/start-all.sh
+#### Optional Configuration
+
+```bash
+# Kafka (for message bus)
+KAFKA_BROKER=localhost:9092
+
+# MinIO (for file storage)
+S3_ENDPOINT=http://localhost:9000
+S3_ACCESS_KEY=minio
+S3_SECRET_KEY=minio123
+
+# Gemini API (for AI chat simulator)
+GEMINI_API_KEY=your_api_key_here
 ```
 
 ### Access the Application
 
-Once all services are running:
+Once all services are running, you can access:
 
 - **Ops Dashboard**: http://localhost:5174
 - **API Gateway**: http://localhost:8000
-- **API Documentation**: See `docs/API.md`
+- **Individual Services**:
+  - Customer Service: http://localhost:8001
+  - Conversation Service: http://localhost:8002
+  - Messaging Service: http://localhost:8003
+  - Media Service: http://localhost:8004
+  - Inbound Gateway: http://localhost:8005
+  - Chat Simulator: http://localhost:8006
+
+### Stopping Services
+
+To stop all running services:
+
+**Unix/macOS:**
+```bash
+# Kill all service processes
+lsof -ti:8000,8001,8002,8003,8004,8005,8006,5174 | xargs kill -9
+```
+
+Or use `Ctrl+C` in the terminal where services are running.
+
+### Troubleshooting
+
+#### Port Already in Use
+
+If you see "Address already in use" errors:
+```bash
+# Kill processes on specific ports
+lsof -ti:8000,8001,8002,8003,8004,8005,8006 | xargs kill -9
+
+# Then restart
+./scripts/unix/start-all.sh
+```
+
+#### Database Connection Issues
+
+1. Verify MySQL is running:
+   ```bash
+   brew services list | grep mysql
+   ```
+
+2. Test database connection:
+   ```bash
+   mysql -u root -p -e "SELECT 1;"
+   ```
+
+3. Ensure databases exist:
+   ```bash
+   mysql -u root -p -e "SHOW DATABASES LIKE 'kobliat_%';"
+   ```
+
+#### Migration Errors
+
+If migrations fail, check:
+- Database credentials in `.env` are correct
+- MySQL user has proper permissions
+- Databases exist (created by setup script)
+
+To re-run migrations:
+```bash
+cd services/customer-service
+php artisan migrate:fresh
+cd ../..
+```
 
 ### Default Credentials
 
@@ -475,7 +606,7 @@ docker-compose logs -f
 ### Backend
 - **Framework**: Laravel 10.x
 - **Language**: PHP 8.1+
-- **Database**: MySQL (dev/prod)
+- **Database**: SQLite (dev), MySQL/PostgreSQL (prod)
 - **Testing**: PHPUnit
 - **API**: RESTful
 

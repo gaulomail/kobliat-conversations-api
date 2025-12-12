@@ -4,12 +4,13 @@ import DashboardLayout from '../layouts/DashboardLayout';
 import Button from '../components/Button';
 
 interface Message {
-    id: string;
-    body: string;
-    sender_customer_id: string;
-    sender_name: string;
-    direction: 'inbound' | 'outbound';
-    created_at: string;
+    id?: string;
+    body?: string;
+    sender_customer_id?: string;
+    sender_name?: string;
+    direction?: 'inbound' | 'outbound';
+    created_at?: string;
+    error?: string; // For API error responses
 }
 
 interface Customer {
@@ -54,11 +55,25 @@ const Chat: React.FC = () => {
 
     const loadConversations = async () => {
         try {
+            console.log('Loading conversations from:', `${BASE_URL}/conversations`);
             const response = await fetch(`${BASE_URL}/conversations`, {
                 headers: { 'X-API-Key': API_KEY }
             });
+
+            console.log('Conversations response status:', response.status);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Failed to load conversations:', response.status, errorText);
+                setConversations([]);
+                return;
+            }
+
             const data = await response.json();
+            console.log('Conversations data received:', data);
+
             const list: Conversation[] = Array.isArray(data) ? data : (data.data || []);
+            console.log('Parsed conversation list:', list);
 
             // Initial render
             setConversations(list);
@@ -69,6 +84,12 @@ const Chat: React.FC = () => {
                     const detailRes = await fetch(`${BASE_URL}/conversations/${conv.id}/details`, {
                         headers: { 'X-API-Key': API_KEY }
                     });
+
+                    if (!detailRes.ok) {
+                        console.warn(`Failed to load details for conversation ${conv.id}`);
+                        return conv;
+                    }
+
                     const detail = await detailRes.json();
 
                     const msgs = Array.isArray(detail.messages) ? detail.messages : (detail.messages?.data || []);
@@ -86,10 +107,12 @@ const Chat: React.FC = () => {
                         last_message_at: lastMsg ? lastMsg.created_at : conv.last_message_at
                     };
                 } catch (e) {
+                    console.error('Error enriching conversation:', conv.id, e);
                     return conv;
                 }
             }));
 
+            console.log('Enriched conversations:', enriched);
             setConversations(enriched);
         } catch (error) {
             console.error('Failed to load conversations:', error);
@@ -125,12 +148,15 @@ const Chat: React.FC = () => {
         setLoading(true);
         setMessages([]);
         try {
+            console.log('Initializing new chat...');
+
             const userResponse = await fetch(`${BASE_URL}/customers`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY },
                 body: JSON.stringify({ external_id: `user_${Date.now()}`, external_type: 'web', name: 'You' })
             });
             const user = await userResponse.json();
+            console.log('Created user:', user);
             setCurrentCustomer(user);
 
             const botResponse = await fetch(`${BASE_URL}/customers`, {
@@ -139,6 +165,7 @@ const Chat: React.FC = () => {
                 body: JSON.stringify({ external_id: `bot_${Date.now()}`, external_type: 'assistant', name: 'AI Assistant' })
             });
             const bot = await botResponse.json();
+            console.log('Created bot:', bot);
             setBotCustomer(bot);
 
             const convResponse = await fetch(`${BASE_URL}/conversations`, {
@@ -147,9 +174,13 @@ const Chat: React.FC = () => {
                 body: JSON.stringify({ type: 'direct', participants: [user.id, bot.id] })
             });
             const conv = await convResponse.json();
+            console.log('Created conversation:', conv);
             setConversation({ ...conv, participants: [user, bot] });
 
             await sendBotMessage(conv.id, bot.id, "Hello! I'm your AI assistant. How can I help you today?");
+
+            // Reload conversations list to show the new conversation
+            console.log('Reloading conversations list...');
             await loadConversations();
         } catch (error) {
             console.error('Failed to initialize chat:', error);
@@ -180,12 +211,24 @@ const Chat: React.FC = () => {
         setLoading(true);
 
         try {
+            const payload = {
+                conversation_id: conversation.id,
+                direction: 'outbound',
+                body: userMessage,
+                sender_customer_id: currentCustomer.id
+            };
+
+            console.log('Sending message payload:', payload);
+
             const response = await fetch(`${BASE_URL}/messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY },
-                body: JSON.stringify({ conversation_id: conversation.id, direction: 'outbound', body: userMessage, sender_customer_id: currentCustomer.id })
+                body: JSON.stringify(payload)
             });
+
             const message = await response.json();
+            console.log('Received message response:', message);
+
             setMessages(prev => [...prev, { ...message, sender_name: 'You' }]);
 
             setTimeout(async () => {
@@ -324,10 +367,25 @@ const Chat: React.FC = () => {
                                 </div>
                             ) : (
                                 <>
-                                    {messages.map((message) => {
+                                    {messages.map((message, index) => {
                                         const isUser = message.sender_customer_id === currentCustomer?.id;
+                                        const messageKey = message.id || `msg-${index}`;
+
+                                        // Handle error messages
+                                        if (message.error) {
+                                            console.error('Message error:', message.error);
+                                            return null; // Don't render error messages
+                                        }
+
+                                        // Skip messages without body
+                                        if (!message.body) {
+                                            console.warn('Message missing body:', message);
+                                            return null;
+                                        }
+
+                                        console.log('Rendering message:', message); // Debug log
                                         return (
-                                            <div key={message.id} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+                                            <div key={messageKey} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
                                                 <div className={`flex gap-3 max-w-[70%] ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
                                                     <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isUser ? 'bg-purple-600 text-white' : 'bg-gray-600 dark:bg-gray-700 text-white'}`}>
                                                         {isUser ? <User size={16} /> : <Bot size={16} />}
@@ -337,7 +395,10 @@ const Chat: React.FC = () => {
                                                             <p className="text-sm">{message.body}</p>
                                                         </div>
                                                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 px-1">
-                                                            {new Date(message.created_at).toLocaleTimeString()}
+                                                            {message.created_at
+                                                                ? new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                                                : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                                            }
                                                         </p>
                                                     </div>
                                                 </div>

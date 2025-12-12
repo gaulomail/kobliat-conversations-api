@@ -7,6 +7,7 @@ use App\Models\Message;
 use App\Models\MessageHistory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Kobliat\Shared\Events\EventBus;
 
 class MessageController extends Controller
@@ -34,19 +35,31 @@ class MessageController extends Controller
             'direction' => 'required|in:inbound,outbound,system',
             'body' => 'required|string',
             'sender_customer_id' => 'nullable|uuid',
+            'channel' => 'string|in:whatsapp,sms,email,web',
+            'metadata' => 'nullable|array',
         ]);
 
         $message = Message::create(array_merge($validated, [
-            'sent_at' => now(),
-            'is_processed' => true,
+            'sent_at' => $validated['direction'] === 'inbound' ? now() : null,
+            'is_processed' => $validated['direction'] === 'inbound',
         ]));
 
+        // Handle based on direction
         if ($validated['direction'] === 'inbound') {
+            // Inbound messages are processed immediately
             $this->eventBus->publishEvent(new MessageInboundCreated(
                 $message->id,
                 $message->conversation_id,
                 $message->body
             ));
+        } elseif ($validated['direction'] === 'outbound') {
+            // Outbound messages are queued for async processing with retry logic
+            \App\Jobs\SendOutboundMessage::dispatch($message);
+            
+            Log::info("Outbound message queued for sending", [
+                'message_id' => $message->id,
+                'channel' => $message->channel,
+            ]);
         }
 
         return response()->json($message, 201);

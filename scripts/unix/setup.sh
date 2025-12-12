@@ -1,11 +1,11 @@
 #!/bin/bash
-# setup-local.sh - Complete setup without starting services
-# This script sets up everything but doesn't start the services
+# setup.sh - Master setup script for Kobliat Conversations Platform
+# This script sets up everything needed to run the platform
 
 set -e
 
 echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║   Kobliat Conversations Platform - Setup (No Auto-Start)      ║"
+echo "║   Kobliat Conversations Platform - Complete Setup             ║"
 echo "╚════════════════════════════════════════════════════════════════╝"
 echo ""
 
@@ -45,109 +45,14 @@ fi
 echo ""
 echo "────────────────────────────────────────────────────────────────"
 
-# Load configuration from .env
-set -a
-source .env
-set +a
-
 # Step 1: Infrastructure Setup (MySQL, Kafka, MinIO) - Optional
 echo "📦 Step 1/3: Setting up infrastructure (MySQL, Kafka, MinIO)..."
 echo "────────────────────────────────────────────────────────────────"
-
-# Check if Homebrew is installed
-if ! command -v brew &> /dev/null; then
-    echo "❌ Homebrew is not installed. Please install it first:"
-    echo "   /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
-    exit 1
-fi
-
-echo "✅ Homebrew found"
-echo ""
-
-# Update Homebrew
-echo "📦 Updating Homebrew..."
-brew update
-
-# Install MySQL
-echo ""
-echo "📦 Checking MySQL..."
-if ! command -v mysql &> /dev/null; then
-    echo "📦 Installing MySQL..."
-    brew install mysql
-    brew services start mysql
-    echo "✅ MySQL installed and started"
+if [ -f "./scripts/unix/setup-local.sh" ]; then
+    ./scripts/unix/setup-local.sh
 else
-    echo "✅ MySQL already installed"
-    brew services start mysql 2>/dev/null || echo "MySQL already running"
+    echo "⚠️  setup-local.sh not found, skipping infrastructure setup"
 fi
-
-# Install Kafka (includes Zookeeper)
-echo ""
-echo "📦 Installing Kafka..."
-if ! command -v kafka-server-start &> /dev/null; then
-    brew install kafka
-    echo "✅ Kafka installed"
-else
-    echo "✅ Kafka already installed"
-fi
-
-# Install MinIO
-echo ""
-echo "📦 Installing MinIO..."
-if ! command -v minio &> /dev/null; then
-    brew install minio/stable/minio
-    echo "✅ MinIO installed"
-else
-    echo "✅ MinIO already installed"
-fi
-
-# Install MinIO Client
-echo ""
-echo "📦 Installing MinIO Client (mc)..."
-if ! command -v mc &> /dev/null; then
-    brew install minio/stable/mc
-    echo "✅ MinIO Client installed"
-else
-    echo "✅ MinIO Client already installed"
-fi
-
-# Create MySQL databases
-echo ""
-echo "📦 Creating MySQL databases..."
-
-# Use DB_PASSWORD from .env (or DB_ROOT_PASSWORD for backward compatibility)
-DB_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-$DB_PASSWORD}
-
-if [ -z "$DB_ROOT_PASSWORD" ]; then
-    echo "⚠️  DB_PASSWORD not set in .env, assuming empty password for MySQL root."
-    MYSQL_CMD="mysql -u root"
-else
-    MYSQL_CMD="mysql -u root -p$DB_ROOT_PASSWORD"
-fi
-
-# Function to create db
-create_db() {
-    local dbname=$1
-    echo "  Creating $dbname..."
-    if ! $MYSQL_CMD -e "CREATE DATABASE IF NOT EXISTS $dbname;"; then
-        echo "❌ Failed to create $dbname. Check your DB_PASSWORD in .env."
-        exit 1
-    fi
-}
-
-create_db "${DB_NAME_CUSTOMER:-kobliat_customer_db}"
-create_db "${DB_NAME_CONVERSATION:-kobliat_conversation_db}"
-create_db "${DB_NAME_MESSAGING:-kobliat_messaging_db}"
-create_db "${DB_NAME_MEDIA:-kobliat_media_db}"
-create_db "${DB_NAME_GATEWAY:-kobliat_gateway_db}"
-
-echo "✅ Databases created"
-
-# Create MinIO data directory
-echo ""
-echo "📁 Creating MinIO data directory..."
-mkdir -p ~/.minio/data
-echo "✅ MinIO data directory created"
 
 echo ""
 echo "────────────────────────────────────────────────────────────────"
@@ -158,6 +63,12 @@ echo "────────────────────────�
 
 # Services list
 services=("api-gateway" "customer-service" "conversation-service" "messaging-service" "media-service" "inbound-gateway" "chat-simulator")
+
+# Source root .env to get central configuration
+echo "📥 Loading configuration from root .env..."
+set -a
+source .env
+set +a
 
 # Default values if not set in .env
 DB_CONNECTION=${DB_CONNECTION:-mysql}
@@ -241,19 +152,36 @@ echo ""
 echo "────────────────────────────────────────────────────────────────"
 
 echo ""
+echo "────────────────────────────────────────────────────────────────"
+
+# Step 3: Ask if user wants to start services
+echo "✅ Setup complete!"
+echo ""
+echo "❓ Do you want to start all services now? [Y/n]"
+read -r START_SERVICES
+
+if [[ -z "$START_SERVICES" ]] || [[ "$START_SERVICES" =~ ^[Yy]$ ]]; then
+    echo ""
+    echo "🚀 Step 3/3: Starting all services..."
+    echo "────────────────────────────────────────────────────────────────"
+    ./scripts/unix/start-all.sh
+else
+    echo ""
+    echo "ℹ️  Services not started. To start them manually, run:"
+    echo "   ./scripts/unix/start-all.sh"
+    echo ""
+    echo "📋 Available services:"
+    echo "   • API Gateway:          http://localhost:8000"
+    echo "   • Customer Service:     http://localhost:8001"
+    echo "   • Conversation Service: http://localhost:8002"
+    echo "   • Messaging Service:    http://localhost:8003"
+    echo "   • Media Service:        http://localhost:8004"
+    echo "   • Inbound Gateway:      http://localhost:8005"
+    echo "   • Chat Simulator:       http://localhost:8006"
+    echo "   • Ops Dashboard:        http://localhost:5174"
+fi
+
+echo ""
 echo "╔════════════════════════════════════════════════════════════════╗"
 echo "║   Setup Complete! 🎉                                          ║"
 echo "╚════════════════════════════════════════════════════════════════╝"
-echo ""
-echo "ℹ️  Services are NOT started. To start them, run:"
-echo "   ./scripts/unix/start-all.sh"
-echo ""
-echo "📋 Available services:"
-echo "   • API Gateway:          http://localhost:8000"
-echo "   • Customer Service:     http://localhost:8001"
-echo "   • Conversation Service: http://localhost:8002"
-echo "   • Messaging Service:    http://localhost:8003"
-echo "   • Media Service:        http://localhost:8004"
-echo "   • Inbound Gateway:      http://localhost:8005"
-echo "   • Chat Simulator:       http://localhost:8006"
-echo "   • Ops Dashboard:        http://localhost:5174"

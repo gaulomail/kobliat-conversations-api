@@ -21,31 +21,30 @@ return new class extends Migration
         // User spec said: CREATE TYPE conversation_type AS ENUM ...
         // So I will execute raw SQL for the types to match SPEC EXACTLY.
 
-        // Only run Postgres specific ENUM creation if not using sqlite
-        if (config('database.default') !== 'sqlite') {
+        $driver = DB::connection()->getDriverName();
+
+        // Only run Postgres specific ENUM creation if using pgsql
+        if ($driver === 'pgsql') {
             DB::statement("DO $$ BEGIN
                 CREATE TYPE conversation_type AS ENUM ('direct', 'multi', 'group');
                 EXCEPTION WHEN duplicate_object THEN null;
             END $$;");
-        }
-
-        if (config('database.default') !== 'sqlite') {
+            
             DB::statement("DO $$ BEGIN
                 CREATE TYPE conversation_status AS ENUM ('open', 'closed', 'pending');
                 EXCEPTION WHEN duplicate_object THEN null;
             END $$;");
         }
 
-        Schema::create('conversations', function (Blueprint $table) {
+        Schema::create('conversations', function (Blueprint $table) use ($driver) {
             $table->uuid('id')->primary();
 
-            // We use raw SQL for the enum column definition to attach the type
-            if (config('database.default') === 'sqlite') {
-                $table->string('type')->default('direct');
-                $table->string('status')->default('open');
-            } else {
+            if ($driver === 'pgsql') {
                 $table->addColumn('conversation_type', 'type')->default('direct');
                 $table->addColumn('conversation_status', 'status')->default('open');
+            } else {
+                $table->enum('type', ['direct', 'multi', 'group'])->default('direct');
+                $table->enum('status', ['open', 'closed', 'pending'])->default('open');
             }
 
             $table->string('group_name')->nullable();

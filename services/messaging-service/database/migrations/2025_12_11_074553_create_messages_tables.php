@@ -12,22 +12,24 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (config('database.default') !== 'sqlite') {
+        $driver = DB::connection()->getDriverName();
+
+        if ($driver === 'pgsql') {
             DB::statement("DO $$ BEGIN
                 CREATE TYPE message_direction AS ENUM ('inbound', 'outbound', 'system');
                 EXCEPTION WHEN duplicate_object THEN null;
             END $$;");
         }
 
-        Schema::create('messages', function (Blueprint $table) {
+        Schema::create('messages', function (Blueprint $table) use ($driver) {
             $table->uuid('id')->primary();
             $table->uuid('conversation_id')->index();
             $table->uuid('sender_customer_id')->nullable(); // Null for system/bot
 
-            if (config('database.default') === 'sqlite') {
-                $table->string('direction');
-            } else {
+            if ($driver === 'pgsql') {
                 $table->addColumn('direction', 'message_direction');
+            } else {
+                $table->enum('direction', ['inbound', 'outbound', 'system']);
             }
 
             $table->string('channel')->default('whatsapp');
@@ -43,16 +45,16 @@ return new class extends Migration
             $table->index('sent_at');
         });
 
-        Schema::create('message_history', function (Blueprint $table) {
+        Schema::create('message_history', function (Blueprint $table) use ($driver) {
             $table->uuid('id')->primary();
             $table->uuid('message_id');
             $table->uuid('conversation_id');
             $table->uuid('customer_id')->nullable(); // Who edited it
 
-            if (config('database.default') === 'sqlite') {
-                $table->string('direction');
-            } else {
+            if ($driver === 'pgsql') {
                 $table->addColumn('direction', 'message_direction');
+            } else {
+                $table->enum('direction', ['inbound', 'outbound', 'system']);
             }
 
             $table->text('body')->nullable();
