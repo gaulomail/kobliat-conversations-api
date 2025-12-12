@@ -1,111 +1,92 @@
 #!/bin/bash
 set -e
 
-echo "🚀 Setting up Kobliat Mini Router 2.0 - Native macOS Installation"
-echo "=================================================================="
-echo ""
+echo "🚀 Setting up Kobliat Conversations..."
+echo "========================================"
 
-# Check if Homebrew is installed
-if ! command -v brew &> /dev/null; then
-    echo "❌ Homebrew is not installed. Please install it first:"
-    echo "   /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
+# Detect DB Password
+DB_PASSWORD=""
+echo "Checking MySQL connection..."
+if mysql -u root -e "SELECT 1" &> /dev/null; then
+    echo "✅ MySQL Connection successful (No Password)"
+elif mysql -u root -p'Blessmore@1' -e "SELECT 1" &> /dev/null; then
+    echo "✅ MySQL Connection successful (Password: Blessmore@1)"
+    DB_PASSWORD="Blessmore@1"
+else
+    echo "❌ Cannot connect to MySQL as root (empty or Blessmore@1)."
+    echo "   Please create databases manually or update setup script."
     exit 1
 fi
 
-echo "✅ Homebrew found"
-echo ""
-
-# Update Homebrew
-echo "📦 Updating Homebrew..."
-brew update
-
-# Install PostgreSQL
-echo ""
-echo "📦 Installing PostgreSQL..."
-if ! command -v psql &> /dev/null; then
-    brew install postgresql@15
-    brew services start postgresql@15
-    echo "✅ PostgreSQL installed and started"
-else
-    echo "✅ PostgreSQL already installed"
-    brew services start postgresql@15 2>/dev/null || echo "PostgreSQL already running"
-fi
-
-# Install Kafka (includes Zookeeper)
-echo ""
-echo "📦 Installing Kafka..."
-if ! command -v kafka-server-start &> /dev/null; then
-    brew install kafka
-    echo "✅ Kafka installed"
-else
-    echo "✅ Kafka already installed"
-fi
-
-# Install MinIO
-echo ""
-echo "📦 Installing MinIO..."
-if ! command -v minio &> /dev/null; then
-    brew install minio/stable/minio
-    echo "✅ MinIO installed"
-else
-    echo "✅ MinIO already installed"
-fi
-
-# Install MinIO Client
-echo ""
-echo "📦 Installing MinIO Client (mc)..."
-if ! command -v mc &> /dev/null; then
-    brew install minio/stable/mc
-    echo "✅ MinIO Client installed"
-else
-    echo "✅ MinIO Client already installed"
-fi
-
-# Install ClamAV (optional, for virus scanning)
-echo ""
-echo "📦 Installing ClamAV (optional - for virus scanning)..."
-if ! command -v clamscan &> /dev/null; then
-    brew install clamav
-    echo "✅ ClamAV installed"
-    echo "⚠️  Note: You'll need to update virus definitions with 'freshclam' before first use"
-else
-    echo "✅ ClamAV already installed"
-fi
-
-# Create PostgreSQL databases
-echo ""
-echo "🗄️  Creating PostgreSQL databases..."
-createdb customer_db 2>/dev/null || echo "  customer_db already exists"
-createdb conversation_db 2>/dev/null || echo "  conversation_db already exists"
-createdb messaging_db 2>/dev/null || echo "  messaging_db already exists"
-createdb media_db 2>/dev/null || echo "  media_db already exists"
-createdb gateway_db 2>/dev/null || echo "  gateway_db already exists"
-echo "✅ Databases created"
-
-# Create MinIO data directory
-echo ""
-echo "📁 Creating MinIO data directory..."
-mkdir -p ~/.minio/data
-echo "✅ MinIO data directory created"
-
-# Create environment file
-echo ""
-echo "📝 Creating .env file..."
-if [ ! -f .env ]; then
-    cp .env.example .env
-    echo "✅ .env file created from .env.example"
-    echo "⚠️  Please update .env with your configuration (especially GEMINI_API_KEY)"
-else
-    echo "✅ .env file already exists"
-fi
+# Create Databases
+dbs=(
+    "kobliat_gateway"
+    "kobliat_conversations"
+    "kobliat_customers"
+    "kobliat_inbound"
+    "kobliat_media"
+    "kobliat_messaging"
+    "kobliat_simulator"
+)
 
 echo ""
-echo "=================================================================="
-echo "✅ Installation complete!"
+echo "🗄️  Creating Databases..."
+for db in "${dbs[@]}"; do
+    if [ -z "$DB_PASSWORD" ]; then
+        mysql -u root -e "CREATE DATABASE IF NOT EXISTS $db;"
+    else
+        mysql -u root -p"$DB_PASSWORD" -e "CREATE DATABASE IF NOT EXISTS $db;"
+    fi
+done
+echo "✅ Databases ready"
+
+# Services Setup
+services=(
+    "services/api-gateway"
+    "services/conversation-service"
+    "services/customer-service"
+    "services/inbound-gateway"
+    "services/media-service"
+    "services/messaging-service"
+    "services/chat-simulator"
+)
+
 echo ""
-echo "Next steps:"
-echo "1. Start the services with: ./scripts/start-services.sh"
-echo "2. Install Node.js dependencies: npm install"
-echo "3. Run database migrations: npm run migrate"
-echo "4. Start the microservices: npm run dev"
+echo "📦 Installing Dependencies & configuring..."
+for dir in "${services[@]}"; do
+    echo "   Processing $dir..."
+    cd "$dir"
+    
+    # Composer
+    composer install --quiet
+    
+    # Environment
+    if [ ! -f .env ]; then
+        cp .env.example .env
+        php artisan key:generate
+    fi
+    
+    # Set DB Password in .env if needed
+    if [ -n "$DB_PASSWORD" ]; then
+        # Enforce the detected password
+        sed -i '' "s/DB_PASSWORD=.*/DB_PASSWORD=$DB_PASSWORD/" .env
+    fi
+
+    # Migrate
+    # Ensure config is cleared before migration
+    php artisan config:clear > /dev/null
+    php artisan migrate --force --quiet
+    
+    cd - > /dev/null
+done
+
+# Frontend
 echo ""
+echo "🎨 Setting up Frontend..."
+cd frontends/ops-dashboard
+npm install --silent
+cd - > /dev/null
+
+echo ""
+echo "✅ Setup Complete!"
+echo "Run ./scripts/unix/start-all.sh to start services."

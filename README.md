@@ -85,13 +85,13 @@ Kobliat Conversations is a **production-ready microservices platform** designed 
 
 | Service | Port | Responsibility | Database |
 |---------|------|----------------|----------|
-| **API Gateway** | 8000 | Request routing, logging, aggregation | SQLite |
-| **Customer Service** | 8001 | Customer management, profiles | SQLite |
-| **Conversation Service** | 8002 | Conversation lifecycle, participants | SQLite |
-| **Messaging Service** | 8003 | Message storage, retrieval | SQLite |
-| **Media Service** | 8004 | File uploads, media handling | SQLite |
-| **Inbound Gateway** | 8005 | Webhook receiver, channel integration | SQLite |
-| **Chat Simulator** | 8006 | AI-powered chat simulation (Gemini) | SQLite |
+| **API Gateway** | 8000 | Request routing, logging, aggregation | MySQL |
+| **Customer Service** | 8001 | Customer management, profiles | MySQL |
+| **Conversation Service** | 8002 | Conversation lifecycle, participants | MySQL |
+| **Messaging Service** | 8003 | Message storage, retrieval | MySQL |
+| **Media Service** | 8004 | File uploads, media handling | MySQL |
+| **Inbound Gateway** | 8005 | Webhook receiver, channel integration | MySQL |
+| **Chat Simulator** | 8006 | AI-powered chat simulation (Gemini) | MySQL |
 
 ### Frontend
 
@@ -161,7 +161,7 @@ Kobliat Conversations is a **production-ready microservices platform** designed 
 - **PHP** 8.1 or higher
 - **Composer** 2.x
 - **Node.js** 18+ and npm
-- **SQLite** (for local development)
+- **MySQL** 8.0+
 - **Git**
 
 ### Installation
@@ -175,23 +175,18 @@ git clone <repository-url>
 cd kobliat-conversations
 
 # Run setup script
-./scripts/unix/setup-local.sh
-
-# Start all services
-./scripts/unix/start-all.sh
+# Run the complete setup and start services
+./scripts/unix/install-and-run.sh
 ```
 
-**Windows:**
-```cmd
-REM Clone the repository
+**Windows (PowerShell):**
+```powershell
+# Clone the repository
 git clone <repository-url>
 cd kobliat-conversations
 
-REM Run setup script
-scripts\windows\setup-local.bat
-
-REM Start all services
-scripts\windows\start-all.bat
+# Run the complete setup and start services
+.\scripts\windows\install-and-run.ps1
 ```
 
 #### Option 2: Manual Setup
@@ -480,7 +475,7 @@ docker-compose logs -f
 ### Backend
 - **Framework**: Laravel 10.x
 - **Language**: PHP 8.1+
-- **Database**: SQLite (dev), MySQL/PostgreSQL (prod)
+- **Database**: MySQL (dev/prod)
 - **Testing**: PHPUnit
 - **API**: RESTful
 
