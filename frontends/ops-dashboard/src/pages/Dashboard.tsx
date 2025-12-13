@@ -313,7 +313,7 @@ function Dashboard() {
                                 />
                                 <Bar dataKey="value" fill="#8884d8" radius={[4, 4, 0, 0]}>
                                     {
-                                        channelStats.map((entry, index) => (
+                                        channelStats.map((_entry, index) => (
                                             <Cell key={`cell-${index}`} fill={['#6366f1', '#ec4899', '#f59e0b', '#10b981'][index % 4]} />
                                         ))
                                     }
