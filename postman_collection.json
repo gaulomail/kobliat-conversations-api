@@ -2,10 +2,94 @@
     "info": {
         "_postman_id": "b0f7e9a8-3c2d-4e5f-9a1b-8c7d6e5f4a3b",
         "name": "Kobliat Conversations Platform - Complete",
-        "description": "Complete API Gateway collection with all working endpoints",
+        "description": "Complete API Gateway collection with multiple authentication methods:\n- API Key (X-API-Key header)\n- Bearer Token (Authorization: Bearer)\n- Basic Auth (Authorization: Basic)",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
+    "auth": {
+        "type": "apikey",
+        "apikey": [
+            {
+                "key": "value",
+                "value": "{{api_key}}",
+                "type": "string"
+            },
+            {
+                "key": "key",
+                "value": "X-API-Key",
+                "type": "string"
+            }
+        ]
+    },
     "item": [
+        {
+            "name": "Authentication Examples",
+            "item": [
+                {
+                    "name": "API Key Auth (Default)",
+                    "request": {
+                        "auth": {
+                            "type": "apikey",
+                            "apikey": [
+                                {
+                                    "key": "value",
+                                    "value": "{{api_key}}",
+                                    "type": "string"
+                                },
+                                {
+                                    "key": "key",
+                                    "value": "X-API-Key",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "method": "GET",
+                        "header": [],
+                        "url": "{{api_gateway_url}}/api/v1/conversations"
+                    }
+                },
+                {
+                    "name": "Bearer Token Auth",
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{bearer_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "method": "GET",
+                        "header": [],
+                        "url": "{{api_gateway_url}}/api/v1/conversations"
+                    }
+                },
+                {
+                    "name": "Basic Auth",
+                    "request": {
+                        "auth": {
+                            "type": "basic",
+                            "basic": [
+                                {
+                                    "key": "username",
+                                    "value": "{{basic_auth_username}}",
+                                    "type": "string"
+                                },
+                                {
+                                    "key": "password",
+                                    "value": "{{basic_auth_password}}",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "method": "GET",
+                        "header": [],
+                        "url": "{{api_gateway_url}}/api/v1/conversations"
+                    }
+                }
+            ]
+        },
         {
             "name": "Customer Service",
             "item": [
@@ -14,8 +98,10 @@
                     "request": {
                         "method": "POST",
                         "header": [
-                            {"key": "Content-Type", "value": "application/json"},
-                            {"key": "X-API-Key", "value": "{{api_key}}"}
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
                         ],
                         "body": {
                             "mode": "raw",
@@ -28,8 +114,16 @@
                     "name": "Get Customer by ID",
                     "request": {
                         "method": "GET",
-                        "header": [{"key": "X-API-Key", "value": "{{api_key}}"}],
+                        "header": [],
                         "url": "{{api_gateway_url}}/api/v1/customers/{{customer_id}}"
+                    }
+                },
+                {
+                    "name": "Get Channel Statistics",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": "{{api_gateway_url}}/api/v1/stats/channels"
                     }
                 }
             ]
@@ -41,7 +135,7 @@
                     "name": "List Conversations",
                     "request": {
                         "method": "GET",
-                        "header": [{"key": "X-API-Key", "value": "{{api_key}}"}],
+                        "header": [],
                         "url": "{{api_gateway_url}}/api/v1/conversations"
                     }
                 },
@@ -50,8 +144,10 @@
                     "request": {
                         "method": "POST",
                         "header": [
-                            {"key": "Content-Type", "value": "application/json"},
-                            {"key": "X-API-Key", "value": "{{api_key}}"}
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
                         ],
                         "body": {
                             "mode": "raw",
@@ -64,7 +160,7 @@
                     "name": "Get Conversation",
                     "request": {
                         "method": "GET",
-                        "header": [{"key": "X-API-Key", "value": "{{api_key}}"}],
+                        "header": [],
                         "url": "{{api_gateway_url}}/api/v1/conversations/{{conversation_id}}"
                     }
                 },
@@ -72,7 +168,7 @@
                     "name": "Get Conversation Details (Aggregated)",
                     "request": {
                         "method": "GET",
-                        "header": [{"key": "X-API-Key", "value": "{{api_key}}"}],
+                        "header": [],
                         "url": "{{api_gateway_url}}/api/v1/conversations/{{conversation_id}}/details"
                     }
                 }
@@ -85,7 +181,7 @@
                     "name": "Get Conversation Messages",
                     "request": {
                         "method": "GET",
-                        "header": [{"key": "X-API-Key", "value": "{{api_key}}"}],
+                        "header": [],
                         "url": "{{api_gateway_url}}/api/v1/conversations/{{conversation_id}}/messages"
                     }
                 },
@@ -94,8 +190,10 @@
                     "request": {
                         "method": "POST",
                         "header": [
-                            {"key": "Content-Type", "value": "application/json"},
-                            {"key": "X-API-Key", "value": "{{api_key}}"}
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
                         ],
                         "body": {
                             "mode": "raw",
@@ -105,12 +203,31 @@
                     }
                 },
                 {
+                    "name": "Send Message with Media",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"conversation_id\": \"{{conversation_id}}\",\n    \"direction\": \"outbound\",\n    \"body\": \"Check out this image!\",\n    \"sender_customer_id\": \"{{customer_id}}\",\n    \"media_id\": \"{{media_id}}\",\n    \"content_type\": \"image/jpeg\"\n}"
+                        },
+                        "url": "{{api_gateway_url}}/api/v1/messages"
+                    }
+                },
+                {
                     "name": "Update Message",
                     "request": {
                         "method": "PUT",
                         "header": [
-                            {"key": "Content-Type", "value": "application/json"},
-                            {"key": "X-API-Key", "value": "{{api_key}}"}
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
                         ],
                         "body": {
                             "mode": "raw",
@@ -128,15 +245,39 @@
                     "name": "Upload Media",
                     "request": {
                         "method": "POST",
-                        "header": [{"key": "X-API-Key", "value": "{{api_key}}"}],
+                        "header": [],
                         "body": {
                             "mode": "formdata",
                             "formdata": [
-                                {"key": "file", "type": "file", "src": []},
-                                {"key": "owner_service", "value": "messaging-service", "type": "text"}
+                                {
+                                    "key": "file",
+                                    "type": "file",
+                                    "src": []
+                                },
+                                {
+                                    "key": "owner_service",
+                                    "value": "messaging-service",
+                                    "type": "text"
+                                }
                             ]
                         },
                         "url": "{{api_gateway_url}}/api/v1/media/upload"
+                    }
+                },
+                {
+                    "name": "Get Media Info",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": "{{api_gateway_url}}/api/v1/media/{{media_id}}"
+                    }
+                },
+                {
+                    "name": "Download Media",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": "{{api_gateway_url}}/api/v1/media/{{media_id}}/download"
                     }
                 }
             ]
@@ -148,15 +289,32 @@
                     "name": "Get API Logs",
                     "request": {
                         "method": "GET",
-                        "header": [{"key": "X-API-Key", "value": "{{api_key}}"}],
+                        "header": [],
                         "url": {
                             "raw": "{{api_gateway_url}}/api/v1/logs?page=1",
-                            "host": ["{{api_gateway_url}}"],
-                            "path": ["api", "v1", "logs"],
+                            "host": [
+                                "{{api_gateway_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "logs"
+                            ],
                             "query": [
-                                {"key": "page", "value": "1"},
-                                {"key": "method", "value": "POST", "disabled": true},
-                                {"key": "status", "value": "200", "disabled": true}
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "method",
+                                    "value": "POST",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "status",
+                                    "value": "200",
+                                    "disabled": true
+                                }
                             ]
                         }
                     }
@@ -165,22 +323,82 @@
                     "name": "Get Log Details",
                     "request": {
                         "method": "GET",
-                        "header": [{"key": "X-API-Key", "value": "{{api_key}}"}],
+                        "header": [],
                         "url": "{{api_gateway_url}}/api/v1/logs/{{log_id}}"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Service Health",
+            "item": [
+                {
+                    "name": "Check All Services",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": "{{api_gateway_url}}/api/v1/services/health"
+                    }
+                },
+                {
+                    "name": "Check Single Service",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": "{{api_gateway_url}}/api/v1/services/health/customer"
                     }
                 }
             ]
         }
     ],
     "variable": [
-        {"key": "api_gateway_url", "value": "http://localhost:8000"},
-        {"key": "api_key", "value": "kobliat-secret-key"},
-        {"key": "customer_phone", "value": "27831234567"},
-        {"key": "customer_id", "value": ""},
-        {"key": "secondary_customer_id", "value": ""},
-        {"key": "conversation_id", "value": ""},
-        {"key": "message_id", "value": ""},
-        {"key": "media_id", "value": ""},
-        {"key": "log_id", "value": ""}
+        {
+            "key": "api_gateway_url",
+            "value": "http://localhost:8000"
+        },
+        {
+            "key": "api_key",
+            "value": "kobliat-secret-key"
+        },
+        {
+            "key": "bearer_token",
+            "value": "kobliat-bearer-token"
+        },
+        {
+            "key": "basic_auth_username",
+            "value": "admin"
+        },
+        {
+            "key": "basic_auth_password",
+            "value": "kobliat-password"
+        },
+        {
+            "key": "customer_phone",
+            "value": "27831234567"
+        },
+        {
+            "key": "customer_id",
+            "value": ""
+        },
+        {
+            "key": "secondary_customer_id",
+            "value": ""
+        },
+        {
+            "key": "conversation_id",
+            "value": ""
+        },
+        {
+            "key": "message_id",
+            "value": ""
+        },
+        {
+            "key": "media_id",
+            "value": ""
+        },
+        {
+            "key": "log_id",
+            "value": ""
+        }
     ]
 }
