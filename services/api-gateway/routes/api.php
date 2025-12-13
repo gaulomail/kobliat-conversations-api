@@ -101,4 +101,10 @@ Route::prefix('v1')->middleware(ApiKeyMiddleware::class)->group(function () {
     Route::get('/stats/channels', function () {
         return app(GatewayController::class)->proxy(request(), 'customer', '/api/customers/stats/channels');
     });
+
+    // Telemetry
+    Route::get('/telemetry/config', [\App\Http\Controllers\TelemetryController::class, 'getConfig']);
+    Route::put('/telemetry/config', [\App\Http\Controllers\TelemetryController::class, 'updateConfig']);
+    Route::get('/telemetry/metrics', [\App\Http\Controllers\TelemetryController::class, 'getMetrics']);
+    Route::delete('/telemetry/metrics', [\App\Http\Controllers\TelemetryController::class, 'clearMetrics']);
 });

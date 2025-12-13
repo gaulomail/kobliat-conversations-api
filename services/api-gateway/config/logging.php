@@ -127,6 +127,13 @@ return [
             'path' => storage_path('logs/laravel.log'),
         ],
 
+        'telemetry' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/telemetry.log'),
+            'level' => env('TELEMETRY_LOG_LEVEL', 'info'),
+            'replace_placeholders' => true,
+        ],
+
     ],
 
 ];
