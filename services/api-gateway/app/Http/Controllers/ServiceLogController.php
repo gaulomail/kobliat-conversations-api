@@ -62,6 +62,26 @@ class ServiceLogController extends Controller
         ]);
     }
 
+    public function clearLogs(Request $request, string $service): JsonResponse
+    {
+        if (! isset($this->services[$service])) {
+            return response()->json(['error' => 'Service not found'], 404);
+        }
+
+        $logPath = base_path('../../'.$this->services[$service]);
+
+        if (! File::exists($logPath)) {
+            return response()->json(['error' => 'Log file not found'], 404);
+        }
+
+        try {
+            File::put($logPath, '');
+            return response()->json(['message' => 'Logs cleared successfully']);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Failed to clear logs: '.$e->getMessage()], 500);
+        }
+    }
+
     public function listServices(): JsonResponse
     {
         $serviceList = [];

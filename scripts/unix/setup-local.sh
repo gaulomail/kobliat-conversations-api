@@ -135,11 +135,11 @@ create_db() {
     fi
 }
 
-create_db "${DB_NAME_CUSTOMER:-kobliat_customer_db}"
-create_db "${DB_NAME_CONVERSATION:-kobliat_conversation_db}"
-create_db "${DB_NAME_MESSAGING:-kobliat_messaging_db}"
-create_db "${DB_NAME_MEDIA:-kobliat_media_db}"
-create_db "${DB_NAME_GATEWAY:-kobliat_gateway_db}"
+create_db "${DB_NAME_CUSTOMER:-kobliat_customers}"
+create_db "${DB_NAME_CONVERSATION:-kobliat_conversations}"
+create_db "${DB_NAME_MESSAGING:-kobliat_messaging}"
+create_db "${DB_NAME_MEDIA:-kobliat_media}"
+create_db "${DB_NAME_GATEWAY:-kobliat_gateway}"
 
 echo "✅ Databases created"
 
@@ -208,11 +208,11 @@ for service in "${services[@]}"; do
 
     # Determine DB Name based on service
     case $service in
-        "customer-service") TARGET_DB=${DB_NAME_CUSTOMER:-kobliat_customer_db} ;;
-        "conversation-service") TARGET_DB=${DB_NAME_CONVERSATION:-kobliat_conversation_db} ;;
-        "messaging-service") TARGET_DB=${DB_NAME_MESSAGING:-kobliat_messaging_db} ;;
-        "media-service") TARGET_DB=${DB_NAME_MEDIA:-kobliat_media_db} ;;
-        *) TARGET_DB=${DB_NAME_GATEWAY:-kobliat_gateway_db} ;;
+        "customer-service") TARGET_DB=${DB_NAME_CUSTOMER:-kobliat_customers} ;;
+        "conversation-service") TARGET_DB=${DB_NAME_CONVERSATION:-kobliat_conversations} ;;
+        "messaging-service") TARGET_DB=${DB_NAME_MESSAGING:-kobliat_messaging} ;;
+        "media-service") TARGET_DB=${DB_NAME_MEDIA:-kobliat_media} ;;
+        *) TARGET_DB=${DB_NAME_GATEWAY:-kobliat_gateway} ;;
     esac
              
     sed -i '' "s/^# DB_DATABASE=.*/DB_DATABASE=${TARGET_DB}/" .env

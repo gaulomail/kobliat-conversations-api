@@ -77,4 +77,13 @@ class CustomerController extends Controller
 
         return response()->json($customer);
     }
+
+    /**
+     * GET /api/customers/stats/channels
+     */
+    public function stats(): JsonResponse
+    {
+        $stats = $this->customerService->getChannelStats();
+        return response()->json($stats);
+    }
 }

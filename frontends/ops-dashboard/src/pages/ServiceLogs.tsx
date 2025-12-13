@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { RefreshCw, Download, Terminal, Search, Filter, ChevronLeft, ChevronRight, ArrowUp, ArrowDown } from 'lucide-react';
+import { RefreshCw, Download, Terminal, Search, Filter, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Trash2 } from 'lucide-react';
 import Button from '../components/Button';
 import DashboardLayout from '../layouts/DashboardLayout';
 
@@ -203,6 +203,29 @@ const ServiceLogs: React.FC = () => {
         URL.revokeObjectURL(url);
     };
 
+    const clearLogs = async () => {
+        if (!window.confirm(`Are you sure you want to clear logs for ${selectedService.service}?`)) return;
+
+        try {
+            const response = await fetch(
+                `http://localhost:8000/api/v1/service-logs/${selectedService.key}`,
+                {
+                    method: 'DELETE',
+                    headers: { 'X-API-Key': 'kobliat-secret-key' }
+                }
+            );
+
+            if (response.ok) {
+                fetchLogs(); // Refresh
+            } else {
+                alert('Failed to clear logs');
+            }
+        } catch (error) {
+            console.error('Error clearing logs:', error);
+            alert('Error clearing logs');
+        }
+    };
+
     return (
         <DashboardLayout>
             <div className="space-y-6 h-[calc(100vh-100px)] flex flex-col">
@@ -252,6 +275,14 @@ const ServiceLogs: React.FC = () => {
                             className={autoRefresh ? 'bg-green-50 text-green-700 border-green-200' : ''}
                         >
                             {autoRefresh ? 'Live' : 'Poll'}
+                        </Button>
+                        <Button
+                            variant="outlined"
+                            onClick={clearLogs}
+                            className="bg-white dark:bg-gray-800 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 border-red-200 dark:border-red-900"
+                            title="Clear Logs"
+                        >
+                            <Trash2 size={16} />
                         </Button>
                         <Button
                             variant="outlined"

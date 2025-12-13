@@ -33,13 +33,16 @@ class MessageController extends Controller
         $validated = $request->validate([
             'conversation_id' => 'required|uuid',
             'direction' => 'required|in:inbound,outbound,system',
-            'body' => 'required|string',
+            'body' => 'nullable|string',
             'sender_customer_id' => 'nullable|uuid',
+            'media_id' => 'nullable|uuid',
+            'content_type' => 'nullable|string',
         ]);
 
         $message = Message::create(array_merge($validated, [
             'sent_at' => now(),
             'is_processed' => true,
+            // Default content_type if not provided but body is present could be text, handled by DB default
         ]));
 
         if ($validated['direction'] === 'inbound') {

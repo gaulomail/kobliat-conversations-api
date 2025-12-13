@@ -88,4 +88,21 @@ class CustomerService
     {
         return Customer::findByExternal($externalType, $externalId);
     }
+
+    /**
+     * Get channel usage stats
+     */
+    public function getChannelStats()
+    {
+        return Customer::select('external_type')
+            ->selectRaw('count(*) as count')
+            ->groupBy('external_type')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'name' => ucfirst($item->external_type),
+                    'value' => $item->count
+                ];
+            });
+    }
 }

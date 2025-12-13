@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, Paperclip, X, File as FileIcon, Loader2, Image as ImageIcon, Play, RefreshCw } from 'lucide-react';
+import { Send, Bot, Paperclip, X, File as FileIcon, Loader2, Play, RefreshCw } from 'lucide-react';
 import DashboardLayout from '../layouts/DashboardLayout';
 import Button from '../components/Button';
 
@@ -33,6 +33,7 @@ interface Conversation {
     participantName?: string;
     last_message_at?: string;
     created_at?: string; // Added for sort fallback
+    channel?: string; // Added channel
 }
 // ... (Chat component)
 
@@ -40,8 +41,14 @@ const Chat: React.FC = () => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [attachment, setAttachment] = useState<{ id: string; filename: string; contentType: string } | null>(null);
-    const [isUploading, setIsUploading] = useState(false);
+    // Attachment State
+    const [draftFile, setDraftFile] = useState<File | null>(null);
+    const [draftPreview, setDraftPreview] = useState<string | null>(null); // For local preview
+    const [uploadingState, setUploadingState] = useState<'idle' | 'uploading' | 'done' | 'error'>('idle');
+    const [uploadedMedia, setUploadedMedia] = useState<{ id: string; filename: string; contentType: string } | null>(null);
+    const [isDragOver, setIsDragOver] = useState(false);
+    const [caption, setCaption] = useState('');
+
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [conversation, setConversation] = useState<Conversation | null>(null);
     const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -59,6 +66,8 @@ const Chat: React.FC = () => {
     useEffect(() => {
         scrollToBottom();
     }, [messages]);
+
+    const [channelFilter, setChannelFilter] = useState<string>('all'); // Filter state
 
     const loadConversations = async () => {
         try {
@@ -111,7 +120,8 @@ const Chat: React.FC = () => {
                         ...conv,
                         preview: lastMsg ? lastMsg.body : 'No messages',
                         participantName: name,
-                        last_message_at: lastMsg ? lastMsg.created_at : conv.last_message_at
+                        last_message_at: lastMsg ? lastMsg.created_at : conv.last_message_at,
+                        channel: customer?.external_type || 'web' // Extract channel
                     };
                 } catch (e) {
                     console.error('Error enriching conversation:', conv.id, e);
@@ -313,15 +323,15 @@ const Chat: React.FC = () => {
     };
 
     const sendMessage = async () => {
-        if ((!input.trim() && !attachment) || !conversation || !currentCustomer) return;
+        if (!input.trim() || !conversation || !currentCustomer) return;
 
         const messagePayload = {
             conversation_id: conversation.id,
             direction: 'outbound' as const, // Fix literal type inference
             sender_customer_id: currentCustomer?.customer_id || currentCustomer?.id, // Prioritize customer_id
-            body: input || (attachment ? 'Sent an attachment' : ''),
-            media_id: attachment?.id,
-            content_type: attachment?.contentType || 'text/plain',
+            body: input,
+            media_id: undefined, // Standard message has no media
+            content_type: 'text/plain',
             created_at: new Date().toISOString()
         };
 
@@ -335,8 +345,9 @@ const Chat: React.FC = () => {
         };
 
         setMessages(prev => [...prev, optimisticMessage]);
-        setInput('');
-        setAttachment(null); // Clear attachment
+        setInput(''); // Clear input
+        // Attachment handling is moved to sendAttachmentMessage
+
 
         try {
             const response = await fetch(`${BASE_URL}/messages`, {
@@ -428,6 +439,106 @@ const Chat: React.FC = () => {
             setIsLoading(false);
         }
     };
+    const handleFileSelect = (file: File) => {
+        setDraftFile(file);
+        setUploadingState('uploading');
+        setCaption(''); // Reset caption
+
+        // Generate local preview for images
+        if (file.type.startsWith('image/')) {
+            const objectUrl = URL.createObjectURL(file);
+            setDraftPreview(objectUrl);
+        } else {
+            setDraftPreview(null);
+        }
+
+        // Start upload immediately
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('owner_service', 'ops-dashboard');
+
+        fetch(`${BASE_URL}/media/upload`, {
+            method: 'POST',
+            headers: { 'X-API-Key': API_KEY },
+            body: formData
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.id) {
+                    setUploadedMedia({
+                        id: data.id,
+                        filename: data.filename,
+                        contentType: data.content_type
+                    });
+                    setUploadingState('done');
+                } else {
+                    setUploadingState('error');
+                }
+            })
+            .catch(() => setUploadingState('error'));
+    };
+
+    const cancelAttachment = () => {
+        setDraftFile(null);
+        setDraftPreview(null);
+        setUploadedMedia(null);
+        setUploadingState('idle');
+        setCaption('');
+    };
+
+    const sendAttachmentMessage = async () => {
+        if (!uploadedMedia || !conversation || !currentCustomer) return;
+
+        const messagePayload = {
+            conversation_id: conversation.id,
+            direction: 'outbound' as const,
+            sender_customer_id: currentCustomer.customer_id || currentCustomer.id,
+            body: caption || '', // Caption is the body
+            media_id: uploadedMedia.id,
+            content_type: uploadedMedia.contentType,
+            created_at: new Date().toISOString()
+        };
+
+        // Optimistic UI for Attachment
+        const tempId = `temp-${Date.now()}`;
+        const optimisticMessage: Message = {
+            id: tempId,
+            ...messagePayload,
+            sender_name: 'You',
+            is_processed: false,
+            // Ensure these are explicitly set for the UI to render the attachment immediately
+            media_id: uploadedMedia.id,
+            content_type: uploadedMedia.contentType
+        };
+
+        setMessages(prev => [...prev, optimisticMessage]);
+        cancelAttachment(); // Close modal immediately
+
+        try {
+            const response = await fetch(`${BASE_URL}/messages`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY },
+                body: JSON.stringify(messagePayload),
+            });
+            const message = await response.json();
+
+            setMessages(prev => prev.map(msg =>
+                msg.id === tempId ? { ...message, sender_name: 'You', is_processed: true } : msg
+            ));
+
+            // Simulate AI Response specific to attachment
+            setIsLoading(true);
+            setTimeout(async () => {
+                await sendBotMessage(conversation.id, botCustomer!.id, "Received your file! Analyzing it now...");
+                setIsLoading(false);
+            }, 1000);
+
+        } catch (error) {
+            setMessages(prev => prev.map(msg =>
+                msg.id === tempId ? { ...msg, is_error: true, body: 'Failed to send attachment.' } : msg
+            ));
+        }
+    };
 
     const runSimulator = async (scenario: 'curious_shopper' | 'angry_customer') => {
         setIsLoading(true);
@@ -481,59 +592,87 @@ const Chat: React.FC = () => {
             </div>
 
             {/* Simulator */}
-            {conversation && (
-                <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">🤖 Chat Simulator</h3>
-                            <p className="text-xs text-gray-600 dark:text-gray-400">Click a scenario to generate AI-powered messages</p>
-                        </div>
-                        <div className="flex gap-2">
-                            <Button variant="outlined" onClick={() => runSimulator('curious_shopper')} disabled={isLoading} className="!text-sm">
-                                <Bot size={14} /> Curious Shopper
-                            </Button>
-                            <Button variant="outlined" onClick={() => runSimulator('angry_customer')} disabled={isLoading} className="!text-sm">
-                                <Bot size={14} /> Angry Customer
-                            </Button>
+            {
+                conversation && (
+                    <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">🤖 Chat Simulator</h3>
+                                <p className="text-xs text-gray-600 dark:text-gray-400">Click a scenario to generate AI-powered messages</p>
+                            </div>
+                            <div className="flex gap-2">
+                                <Button variant="outlined" onClick={() => runSimulator('curious_shopper')} disabled={isLoading} className="!text-sm">
+                                    <Bot size={14} /> Curious Shopper
+                                </Button>
+                                <Button variant="outlined" onClick={() => runSimulator('angry_customer')} disabled={isLoading} className="!text-sm">
+                                    <Bot size={14} /> Angry Customer
+                                </Button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Main Chat Area */}
             <div className="grid grid-cols-12 gap-6">
                 {/* Conversations Sidebar */}
                 <div className="col-span-3">
                     <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 h-[600px] flex flex-col">
-                        <div className="p-4 border-b border-gray-200 dark:border-slate-800">
-                            <h3 className="font-bold text-gray-900 dark:text-white">Conversations</h3>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{conversations.length} total</p>
+                        <div className="p-4 border-b border-gray-200 dark:border-slate-800 space-y-3">
+                            <div className="flex justify-between items-center">
+                                <h3 className="font-bold text-gray-900 dark:text-white">Conversations</h3>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">{conversations.length} total</p>
+                            </div>
+
+                            {/* Channel Filter */}
+                            <select
+                                value={channelFilter}
+                                onChange={(e) => setChannelFilter(e.target.value)}
+                                className="w-full p-2 text-sm bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                            >
+                                <option value="all">All Channels</option>
+                                <option value="web">Web Chat</option>
+                                <option value="whatsapp">WhatsApp</option>
+                                <option value="email">Email</option>
+                                <option value="sms">SMS</option>
+                            </select>
                         </div>
                         <div className="flex-1 overflow-y-auto">
                             {conversations.length === 0 ? (
                                 <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">No conversations yet</div>
                             ) : (
-                                conversations.map((conv) => (
-                                    <button key={conv.id} onClick={() => loadConversation(conv.id)}
-                                        className={`w-full p-4 text-left border-b border-gray-200 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors ${conversation?.id === conv.id ? 'bg-violet-50 dark:bg-violet-900/20' : ''}`}>
-                                        <div className="flex justify-between items-start mb-1">
-                                            <div className="flex items-center gap-2 overflow-hidden">
-                                                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${conv.preview ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                                                <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                                                    {conv.participantName || 'Conversation'}
+                                conversations
+                                    .filter(c => channelFilter === 'all' || c.channel === channelFilter)
+                                    .map((conv) => (
+                                        <button key={conv.id} onClick={() => loadConversation(conv.id)}
+                                            className={`w-full p-4 text-left border-b border-gray-200 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors ${conversation?.id === conv.id ? 'bg-violet-50 dark:bg-violet-900/20' : ''}`}>
+                                            <div className="flex justify-between items-start mb-1">
+                                                <div className="flex items-center gap-2 overflow-hidden">
+                                                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${conv.preview ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                                                    <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                                        {conv.participantName || 'Conversation'}
+                                                    </span>
+                                                </div>
+                                                {conv.last_message_at && (
+                                                    <span className="text-[10px] text-gray-400 whitespace-nowrap ml-2">
+                                                        {new Date(conv.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider ${conv.channel === 'whatsapp' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                                    conv.channel === 'email' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                                                        conv.channel === 'sms' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
+                                                            'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'
+                                                    }`}>
+                                                    {conv.channel}
                                                 </span>
                                             </div>
-                                            {conv.last_message_at && (
-                                                <span className="text-[10px] text-gray-400 whitespace-nowrap ml-2">
-                                                    {new Date(conv.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                </span>
-                                            )}
-                                        </div>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate pl-4">
-                                            {conv.preview || `ID: ${conv.id.substring(0, 8)}...`}
-                                        </p>
-                                    </button>
-                                ))
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate pl-4">
+                                                {conv.preview || `ID: ${conv.id.substring(0, 8)}...`}
+                                            </p>
+                                        </button>
+                                    ))
                             )}
                         </div>
                     </div>
@@ -592,9 +731,31 @@ const Chat: React.FC = () => {
                                                         </div>
                                                     )}
 
-                                                    {/* Image Attachment */}
-                                                    {message.media_id && message.content_type?.startsWith('image/') && (
-                                                        <ChatImage mediaId={message.media_id} />
+                                                    {/* Media Attachment */}
+                                                    {message.media_id && (
+                                                        <div className="mb-2">
+                                                            {message.content_type?.startsWith('image/') ? (
+                                                                <ChatImage mediaId={message.media_id} baseUrl={BASE_URL} />
+                                                            ) : (
+                                                                <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg border border-gray-200 dark:border-slate-600 max-w-sm">
+                                                                    <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400">
+                                                                        <FileIcon size={24} />
+                                                                    </div>
+                                                                    <div className="overflow-hidden">
+                                                                        <p className="font-medium text-sm truncate text-gray-900 dark:text-white">Attachment</p>
+                                                                        <p className="text-xs text-gray-500 dark:text-gray-400 uppercase">{message.content_type?.split('/')[1] || 'FILE'}</p>
+                                                                    </div>
+                                                                    <a
+                                                                        href={`${BASE_URL}/media/${message.media_id}/download`}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="ml-auto p-2 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                                                                    >
+                                                                        <Paperclip size={18} />
+                                                                    </a>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     )}
 
                                                     <p className="whitespace-pre-wrap leading-relaxed">{message.body}</p>
@@ -626,69 +787,45 @@ const Chat: React.FC = () => {
                         </div>
 
                         {/* Input Area */}
-                        <div className="p-4 border-t border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-b-xl">
-                            {attachment && (
-                                <div className="mb-3 flex items-center gap-2 p-2 bg-slate-100 dark:bg-slate-800 rounded-lg w-fit">
-                                    <div className="bg-slate-200 dark:bg-slate-700 p-1.5 rounded">
-                                        {attachment.contentType.startsWith('image/') ? <ImageIcon size={16} /> : <FileIcon size={16} />}
+                        <div
+                            className="p-4 border-t border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-b-xl relative"
+                            onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+                            onDragLeave={() => setIsDragOver(false)}
+                            onDrop={(e) => {
+                                e.preventDefault();
+                                setIsDragOver(false);
+                                const file = e.dataTransfer.files?.[0];
+                                if (file) handleFileSelect(file);
+                            }}
+                        >
+                            {isDragOver && (
+                                <div className="absolute inset-0 bg-indigo-50/90 dark:bg-indigo-900/80 z-10 flex items-center justify-center border-2 border-dashed border-indigo-500 rounded-b-xl mx-2 mb-2">
+                                    <div className="text-indigo-600 dark:text-indigo-300 font-medium flex flex-col items-center gap-2">
+                                        <FileIcon size={32} />
+                                        <span>Drop file here to send</span>
                                     </div>
-                                    <span className="text-sm truncate max-w-[200px] text-slate-700 dark:text-slate-300">{attachment.filename}</span>
-                                    <button
-                                        onClick={() => setAttachment(null)}
-                                        className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full"
-                                    >
-                                        <X size={14} />
-                                    </button>
                                 </div>
                             )}
-                            <div className="flex gap-2">
+
+                            <div className="flex gap-2 items-end">
                                 <input
                                     type="file"
                                     ref={fileInputRef}
                                     className="hidden"
-                                    onChange={async (e) => {
+                                    onChange={(e) => {
                                         const file = e.target.files?.[0];
-                                        if (!file) return;
-
-                                        setIsUploading(true);
-                                        const formData = new FormData();
-                                        formData.append('file', file);
-                                        formData.append('owner_service', 'ops-dashboard');
-
-                                        try {
-                                            // Upload via Gateway
-                                            const res = await fetch(`${BASE_URL}/media/upload`, {
-                                                method: 'POST',
-                                                headers: { 'X-API-Key': API_KEY },
-                                                body: formData
-                                            });
-                                            const data = await res.json();
-                                            if (res.ok) {
-                                                setAttachment({
-                                                    id: data.id,
-                                                    filename: data.filename,
-                                                    contentType: data.content_type
-                                                });
-                                            } else {
-                                                console.error('Upload failed', data);
-                                                alert('Upload failed: ' + (data.error || 'Unknown error'));
-                                            }
-                                        } catch (err) {
-                                            console.error('Upload error', err);
-                                            alert('Upload failed');
-                                        } finally {
-                                            setIsUploading(false);
-                                            if (fileInputRef.current) fileInputRef.current.value = '';
-                                        }
+                                        if (file) handleFileSelect(file);
+                                        // Reset input so same file can be selected again if needed
+                                        e.target.value = '';
                                     }}
                                 />
                                 <button
                                     onClick={() => fileInputRef.current?.click()}
-                                    disabled={isUploading || !conversation}
-                                    className="p-3 text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 transition-colors disabled:opacity-50"
+                                    disabled={!conversation}
+                                    className="p-3 text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 transition-colors disabled:opacity-50 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800"
                                     title="Attach file"
                                 >
-                                    {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Paperclip className="w-5 h-5" />}
+                                    <Paperclip className="w-5 h-5" />
                                 </button>
                                 <input
                                     type="text"
@@ -696,12 +833,12 @@ const Chat: React.FC = () => {
                                     onChange={(e) => setInput(e.target.value)}
                                     onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
                                     placeholder="Type your message..."
-                                    disabled={!conversation || isUploading}
-                                    className="flex-1 bg-gray-100 dark:bg-slate-800 text-gray-900 dark:text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                                    disabled={!conversation}
+                                    className="flex-1 bg-gray-100 dark:bg-slate-800 text-gray-900 dark:text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 max-h-32"
                                 />
                                 <button
-                                    onClick={sendMessage}
-                                    disabled={(!input.trim() && !attachment) || !conversation || isUploading}
+                                    onClick={() => sendMessage()}
+                                    disabled={!input.trim() || !conversation}
                                     className="bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                                 >
                                     <Send className="w-5 h-5" />
@@ -730,17 +867,102 @@ const Chat: React.FC = () => {
                     )}
                 </div>{/* Close col-span-9 */}
             </div>{/* Close grid */}
-        </DashboardLayout>
+
+            {/* WhatsApp Style Attachment Preview Modal */}
+            {
+                draftFile && (
+                    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+                        <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                            {/* Header */}
+                            <div className="bg-gray-100 dark:bg-slate-800 p-4 flex justify-between items-center text-gray-900 dark:text-white">
+                                <h3 className="font-semibold">Send File</h3>
+                                <button onClick={cancelAttachment} className="p-2 hover:bg-gray-200 dark:hover:bg-slate-700 rounded-full transition-colors">
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            {/* Preview Area */}
+                            <div className="flex-1 p-8 bg-gray-50 dark:bg-slate-950 flex items-center justify-center overflow-auto min-h-[300px]">
+                                {draftFile.type.startsWith('image/') && draftPreview ? (
+                                    <img src={draftPreview} alt="Preview" className="max-w-full max-h-[500px] rounded-lg shadow-lg object-contain" />
+                                ) : (
+                                    <div className="flex flex-col items-center gap-4 text-gray-500 dark:text-gray-400 p-10 bg-white dark:bg-slate-900 rounded-2xl shadow-sm">
+                                        <FileIcon size={64} className="text-indigo-500" />
+                                        <div className="text-center">
+                                            <p className="font-medium text-lg text-gray-900 dark:text-white">{draftFile.name}</p>
+                                            <p className="text-sm">{(draftFile.size / 1024).toFixed(1)} KB • {draftFile.type || 'Unknown Type'}</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Footer / Input */}
+                            <div className="p-4 bg-white dark:bg-slate-900 border-t border-gray-200 dark:border-slate-800">
+                                <div className="flex gap-2 items-center">
+                                    <div className="relative flex-1">
+                                        <input
+                                            type="text"
+                                            value={caption}
+                                            onChange={(e) => setCaption(e.target.value)}
+                                            onKeyPress={(e) => e.key === 'Enter' && uploadedMedia && sendAttachmentMessage()}
+                                            placeholder="Add a caption..."
+                                            autoFocus
+                                            className="w-full bg-gray-100 dark:bg-slate-800 text-gray-900 dark:text-white rounded-full px-6 py-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 pr-12"
+                                        />
+                                        {uploadingState === 'uploading' && (
+                                            <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                                                <Loader2 className="w-5 h-5 animate-spin text-indigo-500" />
+                                            </div>
+                                        )}
+                                        {uploadingState === 'done' && (
+                                            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-green-500">
+                                                <Send size={20} className="rotate-45" />
+                                                {/* Just an icon to show ready, button is separate */}
+                                            </div>
+                                        )}
+                                        {uploadingState === 'error' && (
+                                            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-red-500" title="Upload failed">
+                                                <X size={20} />
+                                            </div>
+                                        )}
+                                    </div>
+                                    <button
+                                        onClick={uploadingState === 'error' ? () => handleFileSelect(draftFile) : sendAttachmentMessage}
+                                        disabled={uploadingState === 'uploading'}
+                                        title={uploadingState === 'error' ? "Retry Upload" : "Send Message"}
+                                        className={`p-4 rounded-full shadow-lg transition-all flex items-center gap-2 text-white ${uploadingState === 'error'
+                                            ? 'bg-red-500 hover:bg-red-600 hover:scale-105 active:scale-95'
+                                            : uploadingState === 'uploading'
+                                                ? 'bg-indigo-400 cursor-wait'
+                                                : 'bg-indigo-600 hover:bg-indigo-700 hover:scale-105 active:scale-95'
+                                            }`}
+                                    >
+                                        {uploadingState === 'uploading' ? (
+                                            <Loader2 className="w-6 h-6 animate-spin" />
+                                        ) : uploadingState === 'error' ? (
+                                            <RefreshCw className="w-6 h-6" />
+                                        ) : (
+                                            <Send size={24} />
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+        </DashboardLayout >
     );
 };
 
-function ChatImage({ mediaId, alt }: { mediaId: string; alt?: string }) {
+function ChatImage({ mediaId, alt, baseUrl }: { mediaId: string; alt?: string; baseUrl: string }) {
     const [src, setSrc] = useState<string | null>(null);
     const [error, setError] = useState(false);
 
     useEffect(() => {
         if (!mediaId) return;
-        fetch(`${'http://localhost:8000/api/v1'}/media/${mediaId}/download`, {
+        fetch(`${baseUrl}/media/${mediaId}/download`, {
             headers: { 'X-API-Key': 'kobliat-secret-key' }
         })
             .then(res => res.json())
@@ -749,7 +971,7 @@ function ChatImage({ mediaId, alt }: { mediaId: string; alt?: string }) {
                 else setError(true);
             })
             .catch(() => setError(true));
-    }, [mediaId]);
+    }, [mediaId, baseUrl]);
 
     if (error) return <div className="text-xs text-red-400 flex items-center gap-1"><X size={12} /> Failed to load image</div>;
     if (!src) return <div className="w-48 h-32 bg-slate-200 dark:bg-slate-700 animate-pulse rounded-lg" />;

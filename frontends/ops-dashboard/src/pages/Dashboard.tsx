@@ -6,7 +6,22 @@ import DashboardLayout from '../layouts/DashboardLayout';
 import Paper from '../components/Paper';
 import Button from '../components/Button';
 import Input from '../components/Input';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
+
+// Helper to format JSON safely
+const formatJson = (data: unknown) => {
+    try {
+        if (typeof data === 'string') {
+            // Check if it's already a JSON string (could be double encoded)
+            const parsed = JSON.parse(data);
+            return JSON.stringify(parsed, null, 2);
+        }
+        return JSON.stringify(data, null, 2);
+    } catch {
+        // If parsing fails or it's just a regular string, return as is or stringified
+        return typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+    }
+};
 
 function Dashboard() {
     const [logs, setLogs] = useState<ApiLog[]>([]);
@@ -22,6 +37,7 @@ function Dashboard() {
     // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [channelStats, setChannelStats] = useState<any[]>([]);
 
     const fetchLogs = useCallback(async () => {
         setLoading(true);
@@ -34,8 +50,18 @@ function Dashboard() {
                 perPage: 2000 // Request plenty of logs for the graph
             });
             setLogs(data.data);
+
+            // Fetch Channel Stats
+            const statsRes = await fetch('http://localhost:8000/api/v1/stats/channels', {
+                headers: { 'X-API-Key': 'kobliat-secret-key' }
+            });
+            if (statsRes.ok) {
+                const statsData = await statsRes.json();
+                setChannelStats(statsData);
+            }
+
         } catch (error) {
-            console.error("Failed to fetch logs", error);
+            console.error("Failed to fetch data", error);
         } finally {
             setLoading(false);
         }
@@ -271,6 +297,32 @@ function Dashboard() {
                     </div>
                 </Paper>
 
+                {/* Channel Stats */}
+                <Paper className="p-6">
+                    <h2 className="text-lg font-bold text-gray-800 dark:text-white mb-6">Channel Distribution</h2>
+                    <div className="h-[300px] w-full flex items-center justify-center">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={channelStats}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" className="dark:stroke-slate-700" />
+                                <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                                <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                                <Tooltip
+                                    cursor={{ fill: 'transparent' }}
+                                    contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.8)', borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                    itemStyle={{ color: '#1e293b' }}
+                                />
+                                <Bar dataKey="value" fill="#8884d8" radius={[4, 4, 0, 0]}>
+                                    {
+                                        channelStats.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={['#6366f1', '#ec4899', '#f59e0b', '#10b981'][index % 4]} />
+                                        ))
+                                    }
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </Paper>
+
                 {/* Logs Section */}
                 <Paper className="overflow-hidden">
                     <div className="flex flex-col gap-4 mb-6">
@@ -498,7 +550,7 @@ function Dashboard() {
                                     <div>
                                         <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-3">Request Body</h4>
                                         <div className="p-4 bg-gray-900 rounded-xl overflow-x-auto">
-                                            <pre className="text-sm text-gray-300 font-mono">{JSON.stringify(selectedLog.request_payload as unknown, null, 2)}</pre>
+                                            <pre className="text-sm text-gray-300 font-mono">{formatJson(selectedLog.request_payload)}</pre>
                                         </div>
                                     </div>
                                 )}
@@ -507,7 +559,7 @@ function Dashboard() {
                                     <div>
                                         <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-3">Response Body</h4>
                                         <div className="p-4 bg-gray-900 rounded-xl overflow-x-auto">
-                                            <pre className="text-sm text-gray-300 font-mono">{JSON.stringify(selectedLog.response_payload as unknown, null, 2)}</pre>
+                                            <pre className="text-sm text-gray-300 font-mono">{formatJson(selectedLog.response_payload)}</pre>
                                         </div>
                                     </div>
                                 )}

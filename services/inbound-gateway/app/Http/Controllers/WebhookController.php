@@ -25,6 +25,7 @@ class WebhookController extends Controller
     public function handle(Request $request, string $provider): JsonResponse
     {
         $payload = $request->all();
+        Log::info("Received inbound webhook from {$provider}", ['payload' => $payload]);
 
         // 1. Normalize to get ID for idempotency check
         $normalized = $this->normalizer->normalize($provider, $payload);

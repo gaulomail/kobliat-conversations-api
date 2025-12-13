@@ -1,207 +1,177 @@
 #!/bin/bash
-# setup.sh - Master setup script for Kobliat Conversations Platform
-# This script sets up everything needed to run the platform
+# setup.sh - Smart Setup Script for Kobliat Conversations Platform
+# Detects current state and only performs necessary actions.
 
 set -e
 
+# Colors
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+
 echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║   Kobliat Conversations Platform - Complete Setup             ║"
+echo "║   Kobliat Smart Setup - Auto-Detection Mode                   ║"
 echo "╚════════════════════════════════════════════════════════════════╝"
 echo ""
 
-# Check for .env file at root
-if [ ! -f .env ]; then
-    echo "⚠️  .env file not found at project root."
-    echo "❓ Do you want to create .env from .env.example? [Y/n]"
-    read -r CREATE_ENV
-    
-    if [[ "$CREATE_ENV" =~ ^[Yy]$ ]] || [[ -z "$CREATE_ENV" ]]; then
-        if [ -f .env.example ]; then
-            cp .env.example .env
-            echo "✅ Created .env file from .env.example"
-        else
-            echo "❌ .env.example not found! Cannot create .env."
-            exit 1
-        fi
+# Global Status Flags
+NEEDS_MIGRATIONS=false
+NEEDS_DEPENDENCIES=false
+SERVICES_RUNNING=false
+
+# -----------------------------------------------------------------------------
+# 1. Environment Configuration
+# -----------------------------------------------------------------------------
+echo "🔍 Checking Environment..."
+if [ -f .env ]; then
+    echo -e "${GREEN}✅ .env file exists.${NC}"
+else
+    echo -e "${YELLOW}⚠️  .env file missing.${NC}"
+    if [ -f .env.example ]; then
+        cp .env.example .env
+        echo -e "${GREEN}✅ Created .env from .env.example${NC}"
+        echo "ℹ️  Please configure your database credentials in .env now."
+        read -p "Press Enter to continue..."
     else
-        echo "❌ .env file is required to proceed. Please create it manually."
+        echo -e "${RED}❌ .env.example missing! Cannot proceed.${NC}"
         exit 1
     fi
 fi
 
-echo ""
-echo "ℹ️  Please review/edit the .env file now if you need to configure:"
-echo "   • Database credentials (DB_USER, DB_PASSWORD)"
-echo "   • Service ports"
-echo "   • API keys (optional)"
-echo ""
-echo "❓ Press 'y' to continue when ready... [y/N]"
-read -r PROCEED
-if [[ ! "$PROCEED" =~ ^[Yy]$ ]]; then
-    echo "❌ Setup cancelled. Run this script again when ready."
-    exit 1
-fi
-
-echo ""
-echo "────────────────────────────────────────────────────────────────"
-
-# Step 1: Infrastructure Setup (MySQL, Kafka, MinIO) - Optional
-echo "📦 Step 1/3: Setting up infrastructure (MySQL, Kafka, MinIO)..."
-echo "────────────────────────────────────────────────────────────────"
-if [ -f "./scripts/unix/setup-local.sh" ]; then
-    ./scripts/unix/setup-local.sh
-else
-    echo "⚠️  setup-local.sh not found, skipping infrastructure setup"
-fi
-
-echo ""
-echo "────────────────────────────────────────────────────────────────"
-
-# Step 2: Application Setup (Dependencies & Migrations)
-echo "📦 Step 2/3: Setting up application (Dependencies & Migrations)..."
-echo "────────────────────────────────────────────────────────────────"
-
-# Services list
-services=("api-gateway" "customer-service" "conversation-service" "messaging-service" "media-service" "inbound-gateway" "chat-simulator")
-
-# Source root .env to get central configuration
-echo "📥 Loading configuration from root .env..."
+# Load Environment
 set -a
 source .env
 set +a
 
-# Default values if not set in .env
-DB_CONNECTION=${DB_CONNECTION:-mysql}
+# Defaults
 DB_HOST=${DB_HOST:-127.0.0.1}
 DB_PORT=${DB_PORT:-3306}
-DB_USER=${DB_USER:-root}
-DB_PASSWORD=${DB_PASSWORD:-}
 
-echo "✅ Using Database Config: $DB_CONNECTION://$DB_HOST:$DB_PORT (User: $DB_USER)"
-
+# -----------------------------------------------------------------------------
+# 2. Database Connectivity Check
+# -----------------------------------------------------------------------------
 echo ""
-echo "📦 Installing Backend Dependencies & Running Migrations..."
+echo "🔍 Checking Database Connection ($DB_HOST:$DB_PORT)..."
+if nc -z "$DB_HOST" "$DB_PORT"; then
+    echo -e "${GREEN}✅ Database server is reachable.${NC}"
+else
+    echo -e "${RED}❌ Database server NOT detected at $DB_HOST:$DB_PORT.${NC}"
+    echo "   Please ensure your MySQL/PostgreSQL server is running."
+    # We continue, but migrations will likely fail
+fi
+
+# -----------------------------------------------------------------------------
+# 3. Backend Services (Dependencies & Configurations)
+# -----------------------------------------------------------------------------
+echo ""
+echo "🔍 Checking Backend Services..."
+services=("api-gateway" "customer-service" "conversation-service" "messaging-service" "media-service" "inbound-gateway" "chat-simulator")
 
 for service in "${services[@]}"; do
-    echo "Processing $service..."
+    echo "👉 Checking $service..."
     cd "services/$service"
-    
-    # Install dependencies
-    if [ ! -f "vendor/autoload.php" ]; then
-        echo "  Running composer install..."
-        composer install --quiet
-    else
-        echo "  Vendor exists, skipping composer install"
-    fi
-    
-    # Environment Setup
+
+    # A. Config (.env) - Always ensure it matches root .env logic, or at least exists
     if [ ! -f .env ]; then
         cp .env.example .env
-        echo "  Created .env from .env.example"
-        
-        # Key generation
         php artisan key:generate
+        echo -e "   ${GREEN}Created .env header.${NC}"
     fi
-    
-    # Apply Central Configuration to Service .env
-    echo "  Applying central configuration..."
-    
-    # Basic DB Config
-    sed -i '' "s/^DB_CONNECTION=.*/DB_CONNECTION=${DB_CONNECTION}/" .env || echo "DB_CONNECTION not found"
-    sed -i '' "s/^# DB_HOST=.*/DB_HOST=${DB_HOST}/" .env
-    sed -i '' "s/^DB_HOST=.*/DB_HOST=${DB_HOST}/" .env
-    sed -i '' "s/^# DB_PORT=.*/DB_PORT=${DB_PORT}/" .env
-    sed -i '' "s/^DB_PORT=.*/DB_PORT=${DB_PORT}/" .env
-    sed -i '' "s/^# DB_USERNAME=.*/DB_USERNAME=${DB_USER}/" .env
-    sed -i '' "s/^DB_USERNAME=.*/DB_USERNAME=${DB_USER}/" .env
-    sed -i '' "s/^# DB_PASSWORD=.*/DB_PASSWORD=${DB_PASSWORD}/" .env
-    sed -i '' "s/^DB_PASSWORD=.*/DB_PASSWORD=${DB_PASSWORD}/" .env
 
-    # Determine DB Name based on service
-    case $service in
-        "customer-service") TARGET_DB=${DB_NAME_CUSTOMER:-kobliat_customer_db} ;;
-        "conversation-service") TARGET_DB=${DB_NAME_CONVERSATION:-kobliat_conversation_db} ;;
-        "messaging-service") TARGET_DB=${DB_NAME_MESSAGING:-kobliat_messaging_db} ;;
-        "media-service") TARGET_DB=${DB_NAME_MEDIA:-kobliat_media_db} ;;
-        *) TARGET_DB=${DB_NAME_GATEWAY:-kobliat_gateway_db} ;;
-    esac
-             
-    sed -i '' "s/^# DB_DATABASE=.*/DB_DATABASE=${TARGET_DB}/" .env
-    sed -i '' "s/^DB_DATABASE=.*/DB_DATABASE=${TARGET_DB}/" .env
-    
-    # Migrations
-    echo "  Migrating..."
-    php artisan migrate --force
-    
+    # B. Dependencies
+    if [ -d "vendor" ]; then
+        echo -e "   ${GREEN}Dependencies already installed.${NC}"
+    else
+        echo -e "   ${YELLOW}Dependencies missing. Installing...${NC}"
+        composer install --quiet
+        NEEDS_DEPENDENCIES=true
+    fi
+
+    # C. Migrations (Idempotent: "migrate --force" does nothing if up to date)
+    # We treat standard output as success, but if it says "Nothing to migrate", that's good.
+    # We assume DB is up.
+    echo "   Running migrations check..."
+    if php artisan migrate --force > /dev/null 2>&1; then
+         echo -e "   ${GREEN}Database schema is up to date.${NC}"
+    else
+         echo -e "   ${RED}Migration failed! Check DB credentials or logs.${NC}"
+         NEEDS_MIGRATIONS=true
+    fi
+
     cd ../..
-    echo "  $service done."
-    echo "-----------------------------------"
 done
 
-# Frontend
-echo "📦 Installing Frontend Dependencies..."
+# -----------------------------------------------------------------------------
+# 4. Frontend Setup
+# -----------------------------------------------------------------------------
+echo ""
+echo "🔍 Checking Frontend..."
 cd frontends/ops-dashboard
-if [ ! -d "node_modules" ]; then
-    npm install
+if [ -d "node_modules" ]; then
+    echo -e "${GREEN}✅ Frontend dependencies installed.${NC}"
 else
-    echo "  node_modules exists, skipping npm install"
+    echo -e "${YELLOW}⚠️  Installing frontend dependencies...${NC}"
+    npm install
 fi
 cd ../..
 
+# -----------------------------------------------------------------------------
+# 5. Service Status Check
+# -----------------------------------------------------------------------------
 echo ""
-echo "────────────────────────────────────────────────────────────────"
+echo "🔍 Checking Service Status..."
 
-# Step 3: Seed Demo Data
-echo "📦 Step 3/4: Seeding demo data..."
-echo "────────────────────────────────────────────────────────────────"
-echo ""
-echo "❓ Do you want to seed the database with demo data? [Y/n]"
-read -r SEED_DATA
-
-if [[ -z "$SEED_DATA" ]] || [[ "$SEED_DATA" =~ ^[Yy]$ ]]; then
-    echo "  Seeding customer service..."
-    cd services/customer-service
-    php artisan db:seed --force
-    cd ../..
-    echo "  ✅ Demo data seeded"
+# Check if API Gateway port (8000) is in use
+if lsof -i :8000 -t >/dev/null ; then
+    SERVICES_RUNNING=true
+    echo -e "${GREEN}✅ Services appear to be RUNNING (Port 8000 active).${NC}"
 else
-    echo "  ⏭️  Skipping demo data seeding"
+    SERVICES_RUNNING=false
+    echo -e "${YELLOW}⚠️  Services are STOPPED.${NC}"
 fi
 
+# -----------------------------------------------------------------------------
+# 6. Actions
+# -----------------------------------------------------------------------------
 echo ""
 echo "────────────────────────────────────────────────────────────────"
-
-echo ""
+echo "   Status Summary"
 echo "────────────────────────────────────────────────────────────────"
 
-# Step 4: Ask if user wants to start services
-echo "✅ Setup complete!"
-echo ""
-echo "❓ Do you want to start all services now? [Y/n]"
-read -r START_SERVICES
-
-if [[ -z "$START_SERVICES" ]] || [[ "$START_SERVICES" =~ ^[Yy]$ ]]; then
-    echo ""
-    echo "🚀 Step 4/4: Starting all services..."
-    echo "────────────────────────────────────────────────────────────────"
-    ./scripts/unix/start-all.sh
+if $SERVICES_RUNNING; then
+    echo "✅ Application is already running."
+    echo "   Dashboard: http://localhost:5173"
+    
+    # Optional: Check if we need to seed
+    read -p "❓ Do you want to run the data seeder again? [y/N] " RUN_SEED
+    if [[ "$RUN_SEED" =~ ^[Yy]$ ]]; then
+        ./scripts/unix/seed-demo-data.sh
+    fi
+    
 else
+    echo "🚀 Starting services..."
+    ./scripts/unix/start-all.sh &
+    
+    # Wait for start
+    echo "⏳ Waiting for services to initialize..."
+    sleep 10
+    
+    # Determine if we should seed (New setup usually needs seed)
+    if [ ! -f .setup_seeded_lock ]; then
+        echo ""
+        echo "🌱 Detected fresh run. Seeding demo data..."
+        if ./scripts/unix/seed-demo-data.sh; then
+            touch .setup_seeded_lock
+        fi
+    else
+        echo "✅ Data already seeded previously (lockfile found)."
+    fi
+
     echo ""
-    echo "ℹ️  Services not started. To start them manually, run:"
-    echo "   ./scripts/unix/start-all.sh"
-    echo ""
-    echo "📋 Available services:"
-    echo "   • API Gateway:          http://localhost:8000"
-    echo "   • Customer Service:     http://localhost:8001"
-    echo "   • Conversation Service: http://localhost:8002"
-    echo "   • Messaging Service:    http://localhost:8003"
-    echo "   • Media Service:        http://localhost:8004"
-    echo "   • Inbound Gateway:      http://localhost:8005"
-    echo "   • Chat Simulator:       http://localhost:8006"
-    echo "   • Ops Dashboard:        http://localhost:5174"
+    echo -e "${GREEN}🎉 Kobliat Platform is LIVE!${NC}"
+    echo "   • Dashboard: http://localhost:5173"
+    echo "   • API:       http://localhost:8000"
 fi
 
-echo ""
-echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║   Setup Complete! 🎉                                          ║"
-echo "╚════════════════════════════════════════════════════════════════╝"
+exit 0

@@ -83,6 +83,7 @@ Route::prefix('v1')->middleware(ApiKeyMiddleware::class)->group(function () {
     // Service Logs
     Route::get('/service-logs', [\App\Http\Controllers\ServiceLogController::class, 'listServices']);
     Route::get('/service-logs/{service}', [\App\Http\Controllers\ServiceLogController::class, 'getLogs']);
+    Route::delete('/service-logs/{service}', [\App\Http\Controllers\ServiceLogController::class, 'clearLogs']);
 
     // Service Health
     Route::get('/services/health', [\App\Http\Controllers\ServiceHealthController::class, 'checkAll']);
@@ -93,4 +94,11 @@ Route::prefix('v1')->middleware(ApiKeyMiddleware::class)->group(function () {
     Route::post('/services/{service}/stop', [\App\Http\Controllers\ServiceControlController::class, 'stop']);
     Route::post('/services/{service}/restart', [\App\Http\Controllers\ServiceControlController::class, 'restart']);
     Route::get('/services/{service}/status', [\App\Http\Controllers\ServiceControlController::class, 'status']);
+    // Notifications
+    Route::get('/notifications', [\App\Http\Controllers\NotificationController::class, 'index']);
+    
+    // Stats
+    Route::get('/stats/channels', function () {
+        return app(GatewayController::class)->proxy(request(), 'customer', '/api/customers/stats/channels');
+    });
 });

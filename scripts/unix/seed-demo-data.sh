@@ -25,19 +25,24 @@ CUSTOMER1=$(curl -s -X POST "$BASE_URL/customers" \
 CUSTOMER2=$(curl -s -X POST "$BASE_URL/customers" \
   -H "Content-Type: application/json" \
   -H "X-API-Key: $API_KEY" \
-  -d '{"external_id":"demo_user_2","external_type":"whatsapp","name":"Jane Smith"}' | jq -r '.id')
+  -d '{"external_id":"demo_user_2","external_type":"email","name":"Jane Smith"}' | jq -r '.id')
 
 CUSTOMER3=$(curl -s -X POST "$BASE_URL/customers" \
   -H "Content-Type: application/json" \
   -H "X-API-Key: $API_KEY" \
   -d '{"external_id":"demo_user_3","external_type":"web","name":"Alice Johnson"}' | jq -r '.id')
 
+CUSTOMER4=$(curl -s -X POST "$BASE_URL/customers" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: $API_KEY" \
+  -d '{"external_id":"demo_user_4","external_type":"sms","name":"Bob Brown"}' | jq -r '.id')
+
 AI_ASSISTANT=$(curl -s -X POST "$BASE_URL/customers" \
   -H "Content-Type: application/json" \
   -H "X-API-Key: $API_KEY" \
   -d '{"external_id":"ai_assistant","external_type":"assistant","name":"AI Assistant"}' | jq -r '.id')
 
-echo "✅ Created 4 customers"
+echo "✅ Created 5 customers"
 
 echo "📦 Creating demo conversations..."
 # Create conversations
@@ -56,7 +61,12 @@ CONV3=$(curl -s -X POST "$BASE_URL/conversations" \
   -H "X-API-Key: $API_KEY" \
   -d "{\"type\":\"direct\",\"participants\":[\"$CUSTOMER3\",\"$AI_ASSISTANT\"]}" | jq -r '.id')
 
-echo "✅ Created 3 conversations"
+CONV4=$(curl -s -X POST "$BASE_URL/conversations" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: $API_KEY" \
+  -d "{\"type\":\"direct\",\"participants\":[\"$CUSTOMER4\",\"$AI_ASSISTANT\"]}" | jq -r '.id')
+
+echo "✅ Created 4 conversations"
 
 echo "📦 Creating demo messages..."
 # Create messages for conversation 1
@@ -103,5 +113,5 @@ echo "  • 4 Customers"
 echo "  • 3 Conversations"
 echo "  • 6 Messages"
 echo ""
-echo "You can now access the AI Chat at: http://localhost:5174"
+echo "You can now access the AI Chat at: http://localhost:5173"
 echo ""

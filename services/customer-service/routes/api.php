@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
 Route::get('/customers', [CustomerController::class, 'index']);
 Route::post('/customers', [CustomerController::class, 'store']);
 Route::get('/customers/{id}', [CustomerController::class, 'show']);
+Route::get('/customers/stats/channels', [CustomerController::class, 'stats']);
 Route::get('/customers/external/{type}/{id}', [CustomerController::class, 'showByExternal']);
 
 Route::get('/health', function () {
