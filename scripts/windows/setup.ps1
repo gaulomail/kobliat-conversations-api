@@ -75,20 +75,22 @@ foreach ($service in $services) {
     Write-Host "👉 Checking $service..."
     Push-Location "services/$service"
 
-    # A. Config
-    if (-not (Test-Path .env)) {
-        Copy-Item .env.example .env
-        php artisan key:generate
-        Write-Green "   Created .env header."
-    }
-
-    # B. Dependencies
+    # A. Dependencies - Install FIRST before any artisan commands
     if (Test-Path "vendor") {
         Write-Green "   Dependencies already installed."
     } else {
         Write-Yellow "   Dependencies missing. Installing..."
         composer install --quiet
         $NEEDS_DEPENDENCIES = $true
+    }
+
+    # B. Config (.env) - Create after dependencies are installed
+    if (-not (Test-Path .env)) {
+        if (Test-Path .env.example) {
+            Copy-Item .env.example .env
+            php artisan key:generate --force
+            Write-Green "   Created .env and generated key."
+        }
     }
 
     # C. Migrations
