@@ -72,20 +72,22 @@ for service in "${services[@]}"; do
     echo "👉 Checking $service..."
     cd "services/$service"
 
-    # A. Config (.env) - Always ensure it matches root .env logic, or at least exists
-    if [ ! -f .env ]; then
-        cp .env.example .env
-        php artisan key:generate
-        echo -e "   ${GREEN}Created .env header.${NC}"
-    fi
-
-    # B. Dependencies
+    # A. Dependencies - Install FIRST before any artisan commands
     if [ -d "vendor" ]; then
         echo -e "   ${GREEN}Dependencies already installed.${NC}"
     else
         echo -e "   ${YELLOW}Dependencies missing. Installing...${NC}"
         composer install --quiet
         NEEDS_DEPENDENCIES=true
+    fi
+
+    # B. Config (.env) - Create after dependencies are installed
+    if [ ! -f .env ]; then
+        if [ -f .env.example ]; then
+            cp .env.example .env
+            php artisan key:generate --force
+            echo -e "   ${GREEN}Created .env and generated key.${NC}"
+        fi
     fi
 
     # C. Migrations (Idempotent: "migrate --force" does nothing if up to date)
