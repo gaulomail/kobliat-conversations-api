@@ -1,8 +1,8 @@
 {
     "info": {
         "_postman_id": "b0f7e9a8-3c2d-4e5f-9a1b-8c7d6e5f4a3b",
-        "name": "Kobliat Conversations Platform - Complete",
-        "description": "Complete API Gateway collection with multiple authentication methods:\n- API Key (X-API-Key header)\n- Bearer Token (Authorization: Bearer)\n- Basic Auth (Authorization: Basic)",
+        "name": "Kobliat Conversations Platform API - v1 Complete",
+        "description": "Complete API Gateway v1 collection with all endpoints.\n\nSupported Authentication Methods:\n- API Key (X-API-Key header)\n- Bearer Token (Authorization: Bearer)\n- Basic Auth (Authorization: Basic)\n\nDefault auth is set to API Key at collection level.",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
     "auth": {
@@ -23,6 +23,7 @@
     "item": [
         {
             "name": "Authentication Examples",
+            "description": "Examples demonstrating all three supported authentication methods",
             "item": [
                 {
                     "name": "API Key Auth (Default)",
@@ -44,7 +45,8 @@
                         },
                         "method": "GET",
                         "header": [],
-                        "url": "{{api_gateway_url}}/api/v1/conversations"
+                        "url": "{{api_gateway_url}}/api/v1/conversations",
+                        "description": "Using X-API-Key header for authentication"
                     }
                 },
                 {
@@ -62,7 +64,8 @@
                         },
                         "method": "GET",
                         "header": [],
-                        "url": "{{api_gateway_url}}/api/v1/conversations"
+                        "url": "{{api_gateway_url}}/api/v1/conversations",
+                        "description": "Using Bearer token in Authorization header"
                     }
                 },
                 {
@@ -85,13 +88,15 @@
                         },
                         "method": "GET",
                         "header": [],
-                        "url": "{{api_gateway_url}}/api/v1/conversations"
+                        "url": "{{api_gateway_url}}/api/v1/conversations",
+                        "description": "Using HTTP Basic Authentication"
                     }
                 }
             ]
         },
         {
             "name": "Customer Service",
+            "description": "Customer management endpoints",
             "item": [
                 {
                     "name": "Create Customer",
@@ -107,7 +112,8 @@
                             "mode": "raw",
                             "raw": "{\n    \"external_id\": \"{{customer_phone}}\",\n    \"external_type\": \"whatsapp\",\n    \"name\": \"John Doe\"\n}"
                         },
-                        "url": "{{api_gateway_url}}/api/v1/customers"
+                        "url": "{{api_gateway_url}}/api/v1/customers",
+                        "description": "Create a new customer record"
                     }
                 },
                 {
@@ -115,28 +121,23 @@
                     "request": {
                         "method": "GET",
                         "header": [],
-                        "url": "{{api_gateway_url}}/api/v1/customers/{{customer_id}}"
-                    }
-                },
-                {
-                    "name": "Get Channel Statistics",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": "{{api_gateway_url}}/api/v1/stats/channels"
+                        "url": "{{api_gateway_url}}/api/v1/customers/{{customer_id}}",
+                        "description": "Retrieve customer details by ID"
                     }
                 }
             ]
         },
         {
             "name": "Conversation Service",
+            "description": "Conversation management endpoints",
             "item": [
                 {
                     "name": "List Conversations",
                     "request": {
                         "method": "GET",
                         "header": [],
-                        "url": "{{api_gateway_url}}/api/v1/conversations"
+                        "url": "{{api_gateway_url}}/api/v1/conversations",
+                        "description": "Get paginated list of all conversations"
                     }
                 },
                 {
@@ -153,7 +154,8 @@
                             "mode": "raw",
                             "raw": "{\n    \"type\": \"direct\",\n    \"participants\": [\"{{customer_id}}\", \"{{secondary_customer_id}}\"]\n}"
                         },
-                        "url": "{{api_gateway_url}}/api/v1/conversations"
+                        "url": "{{api_gateway_url}}/api/v1/conversations",
+                        "description": "Create a new conversation between participants"
                     }
                 },
                 {
@@ -161,7 +163,8 @@
                     "request": {
                         "method": "GET",
                         "header": [],
-                        "url": "{{api_gateway_url}}/api/v1/conversations/{{conversation_id}}"
+                        "url": "{{api_gateway_url}}/api/v1/conversations/{{conversation_id}}",
+                        "description": "Get conversation details by ID"
                     }
                 },
                 {
@@ -169,24 +172,27 @@
                     "request": {
                         "method": "GET",
                         "header": [],
-                        "url": "{{api_gateway_url}}/api/v1/conversations/{{conversation_id}}/details"
+                        "url": "{{api_gateway_url}}/api/v1/conversations/{{conversation_id}}/details",
+                        "description": "Get conversation with messages and enriched participant data (aggregated endpoint)"
                     }
                 }
             ]
         },
         {
             "name": "Messaging Service",
+            "description": "Message management endpoints",
             "item": [
                 {
                     "name": "Get Conversation Messages",
                     "request": {
                         "method": "GET",
                         "header": [],
-                        "url": "{{api_gateway_url}}/api/v1/conversations/{{conversation_id}}/messages"
+                        "url": "{{api_gateway_url}}/api/v1/conversations/{{conversation_id}}/messages",
+                        "description": "Get all messages for a specific conversation"
                     }
                 },
                 {
-                    "name": "Send Message",
+                    "name": "Send Text Message",
                     "request": {
                         "method": "POST",
                         "header": [
@@ -199,7 +205,8 @@
                             "mode": "raw",
                             "raw": "{\n    \"conversation_id\": \"{{conversation_id}}\",\n    \"direction\": \"outbound\",\n    \"body\": \"Hello from API Gateway!\",\n    \"sender_customer_id\": \"{{customer_id}}\"\n}"
                         },
-                        "url": "{{api_gateway_url}}/api/v1/messages"
+                        "url": "{{api_gateway_url}}/api/v1/messages",
+                        "description": "Send a text message"
                     }
                 },
                 {
@@ -216,7 +223,8 @@
                             "mode": "raw",
                             "raw": "{\n    \"conversation_id\": \"{{conversation_id}}\",\n    \"direction\": \"outbound\",\n    \"body\": \"Check out this image!\",\n    \"sender_customer_id\": \"{{customer_id}}\",\n    \"media_id\": \"{{media_id}}\",\n    \"content_type\": \"image/jpeg\"\n}"
                         },
-                        "url": "{{api_gateway_url}}/api/v1/messages"
+                        "url": "{{api_gateway_url}}/api/v1/messages",
+                        "description": "Send a message with attached media"
                     }
                 },
                 {
@@ -233,13 +241,15 @@
                             "mode": "raw",
                             "raw": "{\n    \"body\": \"Updated message text\"\n}"
                         },
-                        "url": "{{api_gateway_url}}/api/v1/messages/{{message_id}}"
+                        "url": "{{api_gateway_url}}/api/v1/messages/{{message_id}}",
+                        "description": "Update an existing message (creates history record)"
                     }
                 }
             ]
         },
         {
             "name": "Media Service",
+            "description": "Media upload and management endpoints",
             "item": [
                 {
                     "name": "Upload Media",
@@ -252,16 +262,19 @@
                                 {
                                     "key": "file",
                                     "type": "file",
-                                    "src": []
+                                    "src": [],
+                                    "description": "File to upload"
                                 },
                                 {
                                     "key": "owner_service",
                                     "value": "messaging-service",
-                                    "type": "text"
+                                    "type": "text",
+                                    "description": "Service uploading the file"
                                 }
                             ]
                         },
-                        "url": "{{api_gateway_url}}/api/v1/media/upload"
+                        "url": "{{api_gateway_url}}/api/v1/media/upload",
+                        "description": "Upload a media file (images, documents, etc.)"
                     }
                 },
                 {
@@ -269,7 +282,8 @@
                     "request": {
                         "method": "GET",
                         "header": [],
-                        "url": "{{api_gateway_url}}/api/v1/media/{{media_id}}"
+                        "url": "{{api_gateway_url}}/api/v1/media/{{media_id}}",
+                        "description": "Get media metadata by ID"
                     }
                 },
                 {
@@ -277,13 +291,15 @@
                     "request": {
                         "method": "GET",
                         "header": [],
-                        "url": "{{api_gateway_url}}/api/v1/media/{{media_id}}/download"
+                        "url": "{{api_gateway_url}}/api/v1/media/{{media_id}}/download",
+                        "description": "Get presigned download URL for media"
                     }
                 }
             ]
         },
         {
             "name": "API Logs",
+            "description": "API request logging and monitoring",
             "item": [
                 {
                     "name": "Get API Logs",
@@ -303,20 +319,30 @@
                             "query": [
                                 {
                                     "key": "page",
-                                    "value": "1"
+                                    "value": "1",
+                                    "description": "Page number"
                                 },
                                 {
                                     "key": "method",
                                     "value": "POST",
-                                    "disabled": true
+                                    "disabled": true,
+                                    "description": "Filter by HTTP method"
                                 },
                                 {
                                     "key": "status",
                                     "value": "200",
-                                    "disabled": true
+                                    "disabled": true,
+                                    "description": "Filter by status code"
+                                },
+                                {
+                                    "key": "path",
+                                    "value": "/api/v1/customers",
+                                    "disabled": true,
+                                    "description": "Filter by path"
                                 }
                             ]
-                        }
+                        },
+                        "description": "Get paginated API request logs with optional filters"
                     }
                 },
                 {
@@ -324,20 +350,74 @@
                     "request": {
                         "method": "GET",
                         "header": [],
-                        "url": "{{api_gateway_url}}/api/v1/logs/{{log_id}}"
+                        "url": "{{api_gateway_url}}/api/v1/logs/{{log_id}}",
+                        "description": "Get detailed information for a specific log entry"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Service Logs",
+            "description": "Service-level log management",
+            "item": [
+                {
+                    "name": "List Services",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": "{{api_gateway_url}}/api/v1/service-logs",
+                        "description": "Get list of all services with log files"
+                    }
+                },
+                {
+                    "name": "Get Service Logs",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{api_gateway_url}}/api/v1/service-logs/{{service_name}}?lines=100",
+                            "host": [
+                                "{{api_gateway_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "service-logs",
+                                "{{service_name}}"
+                            ],
+                            "query": [
+                                {
+                                    "key": "lines",
+                                    "value": "100",
+                                    "description": "Number of lines to retrieve"
+                                }
+                            ]
+                        },
+                        "description": "Get logs for a specific service"
+                    }
+                },
+                {
+                    "name": "Clear Service Logs",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": "{{api_gateway_url}}/api/v1/service-logs/{{service_name}}",
+                        "description": "Clear/delete logs for a specific service"
                     }
                 }
             ]
         },
         {
             "name": "Service Health",
+            "description": "Service health monitoring endpoints",
             "item": [
                 {
                     "name": "Check All Services",
                     "request": {
                         "method": "GET",
                         "header": [],
-                        "url": "{{api_gateway_url}}/api/v1/services/health"
+                        "url": "{{api_gateway_url}}/api/v1/services/health",
+                        "description": "Check health status of all microservices"
                     }
                 },
                 {
@@ -345,7 +425,98 @@
                     "request": {
                         "method": "GET",
                         "header": [],
-                        "url": "{{api_gateway_url}}/api/v1/services/health/customer"
+                        "url": "{{api_gateway_url}}/api/v1/services/health/{{service_name}}",
+                        "description": "Check health status of a specific service (customer, conversation, messaging, media)"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Service Control",
+            "description": "Service lifecycle management (start, stop, restart)",
+            "item": [
+                {
+                    "name": "Start Service",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": "{{api_gateway_url}}/api/v1/services/{{service_name}}/start",
+                        "description": "Start a stopped service"
+                    }
+                },
+                {
+                    "name": "Stop Service",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": "{{api_gateway_url}}/api/v1/services/{{service_name}}/stop",
+                        "description": "Stop a running service"
+                    }
+                },
+                {
+                    "name": "Restart Service",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": "{{api_gateway_url}}/api/v1/services/{{service_name}}/restart",
+                        "description": "Restart a service"
+                    }
+                },
+                {
+                    "name": "Get Service Status",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": "{{api_gateway_url}}/api/v1/services/{{service_name}}/status",
+                        "description": "Get current status of a service"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Notifications",
+            "description": "Notification management",
+            "item": [
+                {
+                    "name": "Get Notifications",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{api_gateway_url}}/api/v1/notifications?unread=true",
+                            "host": [
+                                "{{api_gateway_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "notifications"
+                            ],
+                            "query": [
+                                {
+                                    "key": "unread",
+                                    "value": "true",
+                                    "disabled": true,
+                                    "description": "Filter unread notifications"
+                                }
+                            ]
+                        },
+                        "description": "Get system notifications"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Statistics",
+            "description": "Analytics and statistics endpoints",
+            "item": [
+                {
+                    "name": "Get Channel Statistics",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": "{{api_gateway_url}}/api/v1/stats/channels",
+                        "description": "Get customer distribution by communication channel (WhatsApp, Email, SMS, Web)"
                     }
                 }
             ]
@@ -354,51 +525,69 @@
     "variable": [
         {
             "key": "api_gateway_url",
-            "value": "http://localhost:8000"
+            "value": "http://localhost:8000",
+            "type": "string"
         },
         {
             "key": "api_key",
-            "value": "kobliat-secret-key"
+            "value": "kobliat-secret-key",
+            "type": "string"
         },
         {
             "key": "bearer_token",
-            "value": "kobliat-bearer-token"
+            "value": "kobliat-bearer-token",
+            "type": "string"
         },
         {
             "key": "basic_auth_username",
-            "value": "admin"
+            "value": "admin",
+            "type": "string"
         },
         {
             "key": "basic_auth_password",
-            "value": "kobliat-password"
+            "value": "kobliat-password",
+            "type": "string"
         },
         {
             "key": "customer_phone",
-            "value": "27831234567"
+            "value": "27831234567",
+            "type": "string"
         },
         {
             "key": "customer_id",
-            "value": ""
+            "value": "",
+            "type": "string"
         },
         {
             "key": "secondary_customer_id",
-            "value": ""
+            "value": "",
+            "type": "string"
         },
         {
             "key": "conversation_id",
-            "value": ""
+            "value": "",
+            "type": "string"
         },
         {
             "key": "message_id",
-            "value": ""
+            "value": "",
+            "type": "string"
         },
         {
             "key": "media_id",
-            "value": ""
+            "value": "",
+            "type": "string"
         },
         {
             "key": "log_id",
-            "value": ""
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "service_name",
+            "value": "customer",
+            "type": "string",
+            "description": "Service name: customer, conversation, messaging, media, inbound, gateway"
         }
     ]
 }
