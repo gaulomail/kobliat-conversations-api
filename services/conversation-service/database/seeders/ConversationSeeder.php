@@ -12,7 +12,7 @@ class ConversationSeeder extends Seeder
     public function run(): void
     {
         // Get customers directly from customer database
-        $customers = DB::connection('customer_db')
+        $customers = DB::connection('kobliat_customers_db')
             ->table('customers')
             ->select('id', 'name', 'external_type')
             ->get();

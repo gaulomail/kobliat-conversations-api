@@ -76,7 +76,7 @@ try {
 # Create Databases
 Write-Host "📦 Creating MySQL databases..."
 $dbs = @(
-    if ($envVars.DB_NAME_CUSTOMER) { $envVars.DB_NAME_CUSTOMER } else { "kobliat_customer_db" },
+    if ($envVars.DB_NAME_CUSTOMER) { $envVars.DB_NAME_CUSTOMER } else { "kobliat_customers_db" },
     if ($envVars.DB_NAME_CONVERSATION) { $envVars.DB_NAME_CONVERSATION } else { "kobliat_conversation_db" },
     if ($envVars.DB_NAME_MESSAGING) { $envVars.DB_NAME_MESSAGING } else { "kobliat_messaging_db" },
     if ($envVars.DB_NAME_MEDIA) { $envVars.DB_NAME_MEDIA } else { "kobliat_media_db" },
@@ -146,7 +146,7 @@ foreach ($service in $services) {
     $content = Set-EnvVar $content "DB_PASSWORD" $DB_PASSWORD
     
     $targetDb = switch ($service) {
-        "customer-service"     { if ($envVars.DB_NAME_CUSTOMER) { $envVars.DB_NAME_CUSTOMER } else { "kobliat_customer_db" } }
+        "customer-service"     { if ($envVars.DB_NAME_CUSTOMER) { $envVars.DB_NAME_CUSTOMER } else { "kobliat_customers_db" } }
         "conversation-service" { if ($envVars.DB_NAME_CONVERSATION) { $envVars.DB_NAME_CONVERSATION } else { "kobliat_conversation_db" } }
         "messaging-service"    { if ($envVars.DB_NAME_MESSAGING) { $envVars.DB_NAME_MESSAGING } else { "kobliat_messaging_db" } }
         "media-service"        { if ($envVars.DB_NAME_MEDIA) { $envVars.DB_NAME_MEDIA } else { "kobliat_media_db" } }
@@ -157,7 +157,7 @@ foreach ($service in $services) {
     
     # FIX: Ensure DB_NAME_CUSTOMER is in conversation-service .env
     if ($service -eq "conversation-service") {
-        $customerDbName = if ($envVars.DB_NAME_CUSTOMER) { $envVars.DB_NAME_CUSTOMER } else { "kobliat_customer_db" }
+        $customerDbName = if ($envVars.DB_NAME_CUSTOMER) { $envVars.DB_NAME_CUSTOMER } else { "kobliat_customers_db" }
         $content = Set-EnvVar $content "DB_NAME_CUSTOMER" $customerDbName
     }
     

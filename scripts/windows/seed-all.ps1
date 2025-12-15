@@ -18,7 +18,7 @@ foreach ($service in $services) {
         if (Test-Path .env) {
             $envContent = Get-Content .env -Raw
             if ($envContent -notmatch "DB_NAME_CUSTOMER") {
-                Add-Content .env "`nDB_NAME_CUSTOMER=kobliat_customer_db"
+                Add-Content .env "`nDB_NAME_CUSTOMER=kobliat_customers_db"
                 Write-Host "  Added DB_NAME_CUSTOMER to .env"
             }
         }

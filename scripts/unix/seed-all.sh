@@ -18,7 +18,7 @@ for service in "${services[@]}"; do
     if [ "$service" = "conversation-service" ]; then
         # Ensure DB_NAME_CUSTOMER is set for cross-database queries
         if ! grep -q "DB_NAME_CUSTOMER" .env; then
-            echo "DB_NAME_CUSTOMER=kobliat_customer_db" >> .env
+            echo "DB_NAME_CUSTOMER=kobliat_customers_db" >> .env
         fi
     fi
     

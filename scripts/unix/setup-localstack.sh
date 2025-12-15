@@ -75,11 +75,11 @@ fi
 # Create PostgreSQL databases
 echo ""
 echo "🗄️  Creating PostgreSQL databases..."
-createdb customer_db 2>/dev/null || echo "  customer_db already exists"
-createdb conversation_db 2>/dev/null || echo "  conversation_db already exists"
-createdb messaging_db 2>/dev/null || echo "  messaging_db already exists"
-createdb media_db 2>/dev/null || echo "  media_db already exists"
-createdb gateway_db 2>/dev/null || echo "  gateway_db already exists"
+createdb kobliat_customer_db 2>/dev/null || echo "  kobliat_customer_db already exists"
+createdb kobliat_kobliate_conversation_db 2>/dev/null || echo "  kobliat_conversation_db already exists"
+createdb kobliat_messaging_db 2>/dev/null || echo "  kobliat_messaging_db already exists"
+createdb kobliat_media_db 2>/dev/null || echo "  kobliat_media_db already exists"
+createdb kobliat_gateway_db 2>/dev/null || echo "  kobliat_gateway_db already exists"
 echo "✅ Databases created"
 
 # Create MinIO data directory

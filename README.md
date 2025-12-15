@@ -259,7 +259,7 @@ DB_USER=root                 # Your MySQL username
 DB_PASSWORD=your_password    # Your MySQL password
 
 # Database Names (automatically created)
-DB_NAME_CUSTOMER=kobliat_customer_db
+DB_NAME_CUSTOMER=kobliat_customers_db
 DB_NAME_CONVERSATION=kobliat_conversation_db
 DB_NAME_MESSAGING=kobliat_messaging_db
 DB_NAME_MEDIA=kobliat_media_db
